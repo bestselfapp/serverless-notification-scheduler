@@ -1,0 +1,6 @@
+*secrets.env
+node_modules/
+.terraform/
+.terraform.lock.hcl
+.serverless/
+output.txt

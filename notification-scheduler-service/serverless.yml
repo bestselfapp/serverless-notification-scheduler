@@ -1,0 +1,116 @@
+service: bsa-notification-scheduler-service
+
+# pin to a specific Serverless version
+# frameworkVersion: ">=2.0.0 <3.0.0"
+
+provider:
+  name: aws
+  region: us-east-1
+  runtime: nodejs14.x
+  deploymentBucket: bsa-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
+  stage: live
+  stackName: bsa-${self:service}-live
+  memorySize: 1024
+  logRetentionInDays: 14 # cloudwatch logs
+  timeout: 15 # seconds
+  versionFunctions: true
+  iamRoleStatements:
+    -
+      Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+        - s3:DeleteObject
+        - s3:ListBucket
+      Resource:
+        - arn:aws:s3:::${ssm:/bsa/exports/api/pdata_bucket}/*
+        - arn:aws:s3:::${ssm:/bsa/exports/api/pdata_bucket}
+
+plugins:
+  - serverless-mocha-plugin
+  - serverless-prune-plugin
+  - serverless-plugin-diff
+
+custom:
+  # serverless-prune-plugin
+  prune:
+    automatic: true
+    number: 5
+
+package:
+  exclude:
+    - .git/**
+    - terraform/**
+    - scripts/**
+
+resources:
+  Resources:
+    NotificationSchedulerTopic:
+      Type: 'AWS::SNS::Topic'
+      Properties:
+        TopicName: bsa-notification-scheduler
+
+    LambdaErrorTopic:
+      Type: 'AWS::SNS::Topic'
+      Properties:
+        TopicName: bsa-notification-scheduler-lambda-error
+        Subscription:
+          - Protocol: email
+            Endpoint: ops+${env:AWS_ENV, 'dev'}@bestselfapp.xyz
+
+    LambdaNoInvocationTopic:
+      Type: 'AWS::SNS::Topic'
+      Properties:
+        TopicName: bsa-notification-scheduler-no-invocation
+        Subscription:
+          - Protocol: email
+            Endpoint: ops+${env:AWS_ENV, 'dev'}@bestselfapp.xyz
+
+    LambdaErrorAlarm:
+      Type: 'AWS::CloudWatch::Alarm'
+      Properties:
+        AlarmName: bsa-notification-scheduler-lambda-error
+        AlarmDescription: 'Notification scheduler lambda had an error today'
+        Namespace: 'AWS/Lambda'
+        MetricName: 'Errors'
+        Statistic: 'Sum'
+        Period: '86400' # 24 hours in seconds, so we get one alarm per day
+        EvaluationPeriods: '1'
+        Threshold: '1'
+        ComparisonOperator: 'GreaterThanOrEqualToThreshold'
+        AlarmActions:
+          - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler-lambda-error
+        Dimensions:
+          - Name: FunctionName
+            Value: bsa-notification-scheduler
+
+    LambdaNoInvocationAlarm:
+      Type: 'AWS::CloudWatch::Alarm'
+      Properties:
+        AlarmName: bsa-notification-scheduler-lambda-no-invocation
+        AlarmDescription: 'Notification scheduler lambda was not invoked in the last 3 days'
+        Namespace: 'AWS/Lambda'
+        MetricName: 'Invocations'
+        Statistic: 'Sum'
+        Period: '86400' # 24 hours in seconds, so we get one alarm per day
+        EvaluationPeriods: '1'
+        Threshold: '0'
+        ComparisonOperator: 'LessThanOrEqualToThreshold'
+        AlarmActions:
+          - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler-lambda-no-invocation
+        Dimensions:
+          - Name: FunctionName
+            Value: bsa-notification-scheduler
+
+functions:
+  bsa-notification-scheduler:
+    name: 'bsa-notification-scheduler'
+    handler: index.handler
+    timeout: 60 # seconds
+    environment:
+      LOG_LEVEL: 'debug'
+      BSA_PERSONALDATA_BUCKET: ${ssm:/bsa/exports/api/pdata_bucket}
+      NOTIFICATION_SCHEDULER_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler
+    events:
+      - sns: 
+          arn: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler
