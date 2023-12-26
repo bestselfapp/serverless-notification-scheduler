@@ -1,12 +1,14 @@
 {
     "uniqueProperties": {
-        "message": {
-            "title": "BestSelfApp",
-            "subtitle": "",
-            "body": "Enter today's data!",
-            "messageContentCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
-        },
+        "userId": "12345",
+        "messageId": "dailyReminder",
         "scheduleType": "recurring"
+    },
+    "message": {
+        "title": "BestSelfApp",
+        "subtitle": "",
+        "body": "Enter today's data!",
+        "messageContentCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
     },
     "notificationType": "sms",
     "pushNotificationSettings": {
