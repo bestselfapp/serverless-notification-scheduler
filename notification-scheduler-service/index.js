@@ -63,7 +63,16 @@ async function processNotification(event) {
         }
         if (!timeSlot) {
             timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
+            if (!timeSlot || !timeSlotFormatValid(timeSlot)) {
+                const errMsg = `Notification Scheduler - Unable to determine time slot from raw time: ${message.sendTimeUtc}`;
+                logger.error(errMsg);
+                throw new Error(errMsg);
+            }
             logger.debug(`Notification Scheduler - Setting time slot to: ${timeSlot} from raw time: ${message.sendTimeUtc}`);
+        }
+
+        if (timeSlot % 5 !== 0) {
+            logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
         }
 
         // generate a unique string from the unique properties of the notification
@@ -134,6 +143,10 @@ async function findUidTimeSlot(Uid) {
         logger.error(`Notification Scheduler - Error in findUidinExistingTimeSlot: ${err}`);
         throw err;
     }
+}
+
+function timeSlotFormatValid(timeSlot) {
+    return /^\d{2}-\d{2}$/.test(timeSlot);
 }
 
 async function deleteUid(timeSlot, Uid) {
