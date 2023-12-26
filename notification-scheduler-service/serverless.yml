@@ -36,6 +36,8 @@ custom:
   prune:
     automatic: true
     number: 5
+  NotificationsBucket: 
+    Fn::GetAtt: [NotificationsBucket, Arn]
 
 package:
   exclude:
@@ -45,6 +47,20 @@ package:
 
 resources:
   Resources:
+    NotificationsBucket:
+      Type: 'AWS::S3::Bucket'
+      Properties:
+        BucketName: bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          IgnorePublicAcls: true
+          BlockPublicPolicy: true
+          RestrictPublicBuckets: true
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+
     NotificationSchedulerTopic:
       Type: 'AWS::SNS::Topic'
       Properties:
@@ -109,7 +125,8 @@ functions:
     timeout: 60 # seconds
     environment:
       LOG_LEVEL: 'debug'
-      BSA_PERSONALDATA_BUCKET: ${ssm:/bsa/exports/api/pdata_bucket}
+      #BSA_PERSONALDATA_BUCKET: ${ssm:/bsa/exports/api/pdata_bucket}
+      NOTIFICATIONS_BUCKET: ${self:custom.NotificationsBucket}
       NOTIFICATION_SCHEDULER_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler
     events:
       - sns: 

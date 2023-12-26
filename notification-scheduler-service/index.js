@@ -71,10 +71,11 @@ async function processNotification(event) {
             logger.debug(`Notification Scheduler - Setting time slot to: ${timeSlot} from raw time: ${message.sendTimeUtc}`);
         }
 
-        if (timeSlot % 5 !== 0) {
+        const timeSlotMinutePart = parseInt(timeSlot.split('-')[1]);
+        if (timeSlotMinutePart % 5 !== 0) {
             logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
         }
-
+        
         // generate a unique string from the unique properties of the notification
         //const hash = generateHash(message.uniqueProperties.message);
         const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
