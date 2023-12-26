@@ -45,12 +45,12 @@ Relies on local ~/.aws/ credentials, see the README in the infrastructure repo f
 
 ```shell
 export AWS_ENV="dev" && export PROFILE="bsa$AWS_ENV"
-export EVENTPATH="events/validRecurringNotificationEvent.json"
+export EVENTPATH="events/validRecurringNotification.json"
 docker run -it -p 80:8080 \
     -v $(pwd):/opt/node_app/app \
     -v ~/.aws/:/root/.aws/ \
     -e AWS_ENV -e AWS_PROFILE=$PROFILE -e EVENTPATH \
     --env-file env-dev.env \
-    bestselfapp/notification-sceduler:latest slsinvokelocal
+    bestselfapp/notification-scheduler:latest slsinvokelocal
 ```
 

@@ -4,6 +4,7 @@ const config = require('./config');
 const logger = require('./logger');
 const Joi = require('joi');
 const axios = require('axios');
+const crypto = require('crypto');
 
 const schema = Joi.object({
     // Define your schema here based on the structure of the sample message
@@ -11,20 +12,20 @@ const schema = Joi.object({
     uniqueProperties: Joi.object({
         message: Joi.object({
             title: Joi.string().required(),
-            subtitle: Joi.string().optional(),
+            subtitle: Joi.string().allow('').optional(),
             body: Joi.string().required(),
-            messageContentCallbackUrl: Joi.string().optional(),
+            messageContentCallbackUrl: Joi.string().allow('').optional(),
         }).required(),
         scheduleType: Joi.string().valid('one-time', 'recurring').required(),
     }).required(),
     notificationType: Joi.string().valid('push', 'sms').required(),
-    pushNotificationSettings: Joi.object().unknown(true).optional,
+    pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
     }).optional(),
     sendTimeUtc: Joi.date().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),
-    adaptiveTimingCallbackUrl: Joi.string().optional(),
+    adaptiveTimingCallbackUrl: Joi.string().allow('').optional(),
 });
 
 async function processNotification(event) {
@@ -45,7 +46,7 @@ async function processNotification(event) {
         // find the time slot for the notification
         let timeSlot = '';
         // if there is an adaptive time callback, call it and update the time slot
-        if (message.enableAdaptiveTiming) {
+        if (message.enableAdaptiveTiming && message.adaptiveTimingCallbackUrl) {
             logger.debug('Notification Scheduler - Adaptive timing enabled');
             const adaptiveTimeUtc = await getAdaptiveTime(message.adaptiveTimingCallbackUrl);
             if (adaptiveTimeUtc) {
@@ -61,7 +62,7 @@ async function processNotification(event) {
         }
 
         // generate a unique string from the unique properties of the notification
-        const hash = generateHash(uniqueProperties.message);
+        const hash = generateHash(message.uniqueProperties.message);
         const Uid = `${hash}-${message.uniqueProperties.scheduleType === 'one-time' ? 'O' : 'R'}`;
 
         // check if the unique hash exists in any time slot folder
@@ -69,10 +70,21 @@ async function processNotification(event) {
 
         // if it does, delete the existing notification
         if (UidTimeSlot) {
-            await deleteUid(timeSlot, Uid);
+            if (UidTimeSlot == timeSlot) {
+                logger.debug(`Notification Scheduler - Notification ${Uid} already exists in time slot ${timeSlot}, will ignore.`);
+            } else {
+                await deleteUid(UidTimeSlot, Uid);
+            }
+        }
+
+        // if adaptive message
+        if (message.uniqueProperties.message.messageContentCallbackUrl) {
+            const adaptiveMessageResponse = await getAdaptiveMessage(message.uniqueProperties.message.messageContentCallbackUrl);            
+            message.uniqueProperties.message = adaptiveMessageResponse;
         }
 
         // save the notification to the time slot folder
+        // (even if it already exists, we want to overwrite any non-unique properties)
         await saveNotification(timeSlot, Uid, message);
     }
     catch (err) {
@@ -82,7 +94,7 @@ async function processNotification(event) {
 };
 
 function getTimeSlotFromDateStr(dateStr) {
-    const sendTime = new Date(date);
+    const sendTime = new Date(dateStr);
     const hours = sendTime.getUTCHours().toString().padStart(2, '0');
     const minutes = sendTime.getUTCMinutes().toString().padStart(2, '0');
     const timeSlot = `${hours}-${minutes}`;
@@ -144,12 +156,31 @@ async function saveNotification(timeSlot, Uid, message) {
 }
 
 async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
-    logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}`);
-
-    // call the adaptive timing callback
-    const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl);
-    logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse}`);
-
+    try {
+        logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}`);
+        // call the adaptive timing callback
+        const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl);
+        logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse.data}`);
+        return adaptiveTimingResponse.data;
+    }
+    catch (err) {
+        logger.error(`Notification Scheduler - Error in getAdaptiveTime: ${err}`);
+        throw err;
+    }
 }
 
-module.exports.handler = handler
+async function getAdaptiveMessage(messageContentCallbackUrl) {
+    try {
+        logger.debug(`Notification Scheduler - Adaptive message callback URL: ${messageContentCallbackUrl}`);
+        // call the adaptive message callback
+        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl);
+        logger.debug(`Notification Scheduler - Adaptive message response: ${adaptiveMessageResponse.data}`);
+        return adaptiveMessageResponse.data;
+    }
+    catch (err) {
+        logger.error(`Notification Scheduler - Error in getAdaptiveMessage: ${err}`);
+        throw err;
+    }
+}
+
+module.exports.handler = processNotification
