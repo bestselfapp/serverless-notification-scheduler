@@ -54,3 +54,16 @@ docker run -it -p 80:8080 \
     bestselfapp/notification-scheduler:latest slsinvokelocal
 ```
 
+## Test
+
+```shell
+export AWS_ENV="dev" && export AWS_PROFILE="bsa$AWS_ENV"
+# see local setup section above to create env-secrets.env file
+docker run -it \
+    -v $(pwd):/opt/node_app/app \
+    -v ~/.aws/:/root/.aws/ \
+    -e AWS_ENV -e AWS_PROFILE \
+    --env-file env-dev.env \
+    bestselfapp/notification-scheduler:latest test
+```
+

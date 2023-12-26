@@ -14,8 +14,7 @@ const schema = Joi.object({
         userId: Joi.string().min(5).required(),
         // should uniquely identify the message from the calling application
         // e.g. 'dailyReminder' or 'earlyMorningPredictionWarning'
-        messageId: Joi.string().min(5).required(),
-        scheduleType: Joi.string().valid('one-time', 'recurring').required(),
+        messageId: Joi.string().min(5).required()
     }).required(),
     message: Joi.object({
         title: Joi.string().required(),
@@ -23,6 +22,7 @@ const schema = Joi.object({
         body: Joi.string().required(),
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
+    scheduleType: Joi.string().valid('one-time', 'recurring').required(),
     notificationType: Joi.string().valid('push', 'sms').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
@@ -68,7 +68,7 @@ async function processNotification(event) {
 
         // generate a unique string from the unique properties of the notification
         //const hash = generateHash(message.uniqueProperties.message);
-        const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId, message.uniqueProperties.scheduleType);
+        const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
 
         // check if the unique hash exists in any time slot folder
         const UidTimeSlot = await findUidTimeSlot(Uid);
@@ -103,35 +103,17 @@ function getTimeSlotFromDateStr(dateStr) {
     const hours = sendTime.getUTCHours().toString().padStart(2, '0');
     const minutes = sendTime.getUTCMinutes().toString().padStart(2, '0');
     const timeSlot = `${hours}-${minutes}`;
+    logger.trace(`Retrieved timeSlot=${timeSlot} from dateStr=${dateStr}`);
     return timeSlot;
 }
 
-// function generateHash(obj) {
-//     // generate a smaller string hash from the unique properties
-//     const hash = crypto.createHash('md5');
-//     hash.update(JSON.stringify(obj));
-//     return hash.digest('hex');
-// }
-
-function generateUniqueMessageId(userId, messageId, scheduleType) {
-    let scheduleTypeAbbr = '';
-    if (scheduleType === 'one-time') {
-        scheduleTypeAbbr = 'O';
-    }
-    else if (scheduleType === 'recurring') {
-        scheduleTypeAbbr = 'R';
-    } else {
-        const errMsg = `Notificaiton Scheduler - Invalid schedule type: ${scheduleType}`;
-        logger.error(errMsg);
-        throw new Error(errMsg);
-    }
-
+function generateUniqueMessageId(userId, messageId) {
     messageId = messageId.replace(/\s/g, '');
     const strippedMessageId = messageId.replace(/[^a-zA-Z0-9]/g, '');
     if (messageId !== strippedMessageId) {
         logger.warn('Notification Scheduler - Special characters have been stripped from the message ID when generating the unique ID');
     }
-    return `${userId}-${strippedMessageId}-${scheduleTypeAbbr}`;
+    return `${userId}-${strippedMessageId}`;
 }
 
 // returns the time slot folder the Uid is found in, or null if not found
@@ -173,7 +155,7 @@ async function saveNotification(timeSlot, Uid, message) {
         // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
         logger.debug(`Notification Scheduler - Saving notification to time slot: ${timeSlot}`);
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
-        await s3db.put(Uid, message);
+        await s3db.put(`${Uid}.json`, message);
         logger.info(`Notification Scheduler - Saved notification ${Uid} to time slot ${timeSlot}`);
     }
     catch (err) {

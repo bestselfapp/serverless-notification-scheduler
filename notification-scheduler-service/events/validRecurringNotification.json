@@ -9,7 +9,7 @@
                 "MessageId": "12345678-1234-1234-1234-123456789012",
                 "TopicArn": "arn:aws:sns:us-west-2:123456789012:MyTopic",
                 "Subject": "BestSelfApp",
-                "Message": "{\"uniqueProperties\": {\"userId\": \"12345\",\"messageId\": \"dailyReminder\",\"scheduleType\": \"recurring\"},\"message\": {\"title\": \"BestSelfApp\",\"subtitle\": \"\",\"body\": \"Enter today's data!\",\"messageContentCallbackUrl\": \"\"},\"notificationType\": \"sms\",\"pushNotificationSettings\": {\"appleSettings\": {\"deviceToken\": \"deviceTokenHere\",\"credentials\": \"notSureWhatGoesHere\"}},\"smsNotificationSettings\": {\"phoneNumber\": \"6092734392\"},\"sendTimeUtc\": \"2024-01-02T02:00:00Z\",\"enableAdaptiveTiming\": true,\"adaptiveTimingCallbackUrl\": \"\"}",
+                "Message": "{\"uniqueProperties\": {\"userId\": \"12345\",\"messageId\": \"dailyReminder\"},\"message\": {\"title\": \"BestSelfApp\",\"subtitle\": \"\",\"body\": \"Enter today's data!\",\"messageContentCallbackUrl\": \"\"},\"scheduleType\": \"recurring\",\"notificationType\": \"sms\",\"pushNotificationSettings\": {\"appleSettings\": {\"deviceToken\": \"deviceTokenHere\",\"credentials\": \"notSureWhatGoesHere\"}},\"smsNotificationSettings\": {\"phoneNumber\": \"6092734392\"},\"sendTimeUtc\": \"2024-01-02T02:00:00Z\",\"enableAdaptiveTiming\": true,\"adaptiveTimingCallbackUrl\": \"\"}",
                 "Timestamp": "2024-01-01T00:00:00.000Z",
                 "SignatureVersion": "1",
                 "Signature": "EXAMPLE",

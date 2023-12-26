@@ -17,6 +17,7 @@
     "joi": "^17.11.0"
   },
   "devDependencies": {
+    "rewire": "^7.0.0",
     "serverless": "^3.26.0",
     "serverless-mocha-plugin": "^1.12.0",
     "serverless-plugin-diff": "^3.0.0",
