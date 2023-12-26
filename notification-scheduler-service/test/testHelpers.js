@@ -8,9 +8,6 @@ const index = rewire('../index');
 const getTimeSlotFromDateStr = index.__get__('getTimeSlotFromDateStr');
 
 module.exports.alterSnsPayload = function(messageObj, options) {
-    //logger.debug(JSON.stringify(message, null, 2));
-    //const messageObj = JSON.parse(message);
-    //const messageObj = message;
     const notificationMessageObj = JSON.parse(messageObj.Records[0].Sns.Message);
     if (options.changeToNewUserId) {
         notificationMessageObj.uniqueProperties.userId = generateNewUniqueUserId();
@@ -18,7 +15,9 @@ module.exports.alterSnsPayload = function(messageObj, options) {
     if (options.changeMessageId) {
         notificationMessageObj.uniqueProperties.messageId = options.changeMessageId;
     }
-    //return JSON.stringify(messageObj);
+    if (options.changeSendTimeUtc) {
+        notificationMessageObj.sendTimeUtc = options.changeSendTimeUtc;
+    }
     messageObj.Records[0].Sns.Message = JSON.stringify(notificationMessageObj);
     return messageObj;
 }
