@@ -23,8 +23,8 @@ provider:
         - s3:DeleteObject
         - s3:ListBucket
       Resource:
-        - arn:aws:s3:::${ssm:/bsa/exports/api/pdata_bucket}/notifications/*
-        - arn:aws:s3:::${ssm:/bsa/exports/api/pdata_bucket}
+        - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/notifications/*
+        - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
 
 plugins:
   - serverless-mocha-plugin
@@ -36,8 +36,8 @@ custom:
   prune:
     automatic: true
     number: 5
-  notificationsBucket: 
-    Fn::GetAtt: [NotificationsBucket, Arn]
+  notificationsBucketName: 
+    Ref: NotificationsBucket
 
 package:
   exclude:
@@ -125,8 +125,7 @@ functions:
     timeout: 60 # seconds
     environment:
       LOG_LEVEL: 'debug'
-      #BSA_PERSONALDATA_BUCKET: ${ssm:/bsa/exports/api/pdata_bucket}
-      NOTIFICATIONS_BUCKET: ${self:custom.notificationsBucket}
+      NOTIFICATION_BUCKET: ${self:custom.notificationsBucketName}
       NOTIFICATION_SCHEDULER_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler
     events:
       - sns: 

@@ -1,4 +1,4 @@
-service: bsa-notification-submitter-service
+service: bsa-notification-processor-service
 
 # pin to a specific Serverless version
 # frameworkVersion: ">=2.0.0 <3.0.0"
@@ -14,22 +14,6 @@ provider:
   logRetentionInDays: 14 # cloudwatch logs
   timeout: 15 # seconds
   versionFunctions: true
-  iamRoleStatements:
-    -
-      Effect: Allow
-      Action:
-        - s3:GetObject
-        - s3:DeleteObject
-        - s3:ListBucket
-      Resource:
-        - arn:aws:s3:::${self:custom.notificationsBucket}/notifications/*
-        - arn:aws:s3:::${self:custom.notificationsBucket}
-    -
-      Effect: Allow
-      Action:
-        - sns:Publish
-      Resource:
-        - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor
 
 plugins:
   - serverless-mocha-plugin
@@ -41,7 +25,6 @@ custom:
   prune:
     automatic: true
     number: 5
-  notificationsBucket: bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
 
 package:
   exclude:
@@ -51,15 +34,10 @@ package:
 
 resources:
   Resources:
-    NotificationProcessorTopic:
-      Type: 'AWS::SNS::Topic'
-      Properties:
-        TopicName: bsa-notification-processor
-
     LambdaErrorTopic:
       Type: 'AWS::SNS::Topic'
       Properties:
-        TopicName: bsa-notification-submitter-lambda-error
+        TopicName: bsa-notification-processor-lambda-error
         Subscription:
           - Protocol: email
             Endpoint: ops+${env:AWS_ENV, 'dev'}@bestselfapp.xyz
@@ -67,7 +45,7 @@ resources:
     LambdaNoInvocationTopic:
       Type: 'AWS::SNS::Topic'
       Properties:
-        TopicName: bsa-notification-submitter-no-invocation
+        TopicName: bsa-notification-processor-no-invocation
         Subscription:
           - Protocol: email
             Endpoint: ops+${env:AWS_ENV, 'dev'}@bestselfapp.xyz
@@ -75,8 +53,8 @@ resources:
     LambdaErrorAlarm:
       Type: 'AWS::CloudWatch::Alarm'
       Properties:
-        AlarmName: bsa-notification-submitter-lambda-error
-        AlarmDescription: 'Notification submitter lambda had an error today'
+        AlarmName: bsa-notification-processor-lambda-error
+        AlarmDescription: 'Notification processor lambda had an error today'
         Namespace: 'AWS/Lambda'
         MetricName: 'Errors'
         Statistic: 'Sum'
@@ -85,16 +63,16 @@ resources:
         Threshold: '1'
         ComparisonOperator: 'GreaterThanOrEqualToThreshold'
         AlarmActions:
-          - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-submitter-lambda-error
+          - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor-lambda-error
         Dimensions:
           - Name: FunctionName
-            Value: bsa-notification-submitter
+            Value: bsa-notification-processor
 
     LambdaNoInvocationAlarm:
       Type: 'AWS::CloudWatch::Alarm'
       Properties:
-        AlarmName: bsa-notification-submitter-lambda-no-invocation
-        AlarmDescription: 'Notification submitter lambda was not invoked in the last 3 days'
+        AlarmName: bsa-notification-processor-lambda-no-invocation
+        AlarmDescription: 'Notification processor lambda was not invoked in the last 3 days'
         Namespace: 'AWS/Lambda'
         MetricName: 'Invocations'
         Statistic: 'Sum'
@@ -103,25 +81,25 @@ resources:
         Threshold: '0'
         ComparisonOperator: 'LessThanOrEqualToThreshold'
         AlarmActions:
-          - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-submitter-lambda-no-invocation
+          - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor-lambda-no-invocation
         Dimensions:
           - Name: FunctionName
-            Value: bsa-notification-submitter
+            Value: bsa-notification-processor
 
 functions:
-  bsa-notification-submitter:
-    name: 'bsa-notification-submitter'
+  bsa-notification-processor:
+    name: 'bsa-notification-processor'
     handler: index.handler
     timeout: 60 # seconds
     environment:
       LOG_LEVEL: 'debug'
       BSA_PERSONALDATA_BUCKET: ${ssm:/bsa/exports/api/pdata_bucket}
-      NOTIFICATION_PROCESSOR_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor
+      NOTIFICATION_processor_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor
     events:
       - schedule:
-          name: notification-submitter-event
+          name: notification-processor-event
           description: 'Trigger notification processing'
-          rate: cron(0/5 * * * ? *)
+            rate: rate(5 minutes)
           enabled: true
           input:
             key1: value1

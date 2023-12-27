@@ -17,6 +17,7 @@ async function processTimeSlot(event) {
         logger.info(`Processing ${notificationsInTimeSlot.length} notifications in time slot ${timeSlot}`);
 
         let notificationsSubmitted = 0;
+        let notificationsDeleted = 0;
         for (const notificationKey of notificationsInTimeSlot) {
             logger.debug(`Processing notification: ${notificationKey}`);
             const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
@@ -34,11 +35,12 @@ async function processTimeSlot(event) {
             if (notificationObj.scheduleType === 'one-time') {
                 logger.debug(`Deleting one-time notification: ${notificationKey}`);
                 await s3db.delete(notificationKey);
+                notificationsDeleted++;
             }
 
             notificationsSubmitted++;
         }
-        return notificationsSubmitted;
+        return { notificationsSubmitted, notificationsDeleted };
     }
     catch (err) {
         logger.error(`Error in notification submitter: ${err}`);
