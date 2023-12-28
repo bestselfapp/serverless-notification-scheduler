@@ -78,8 +78,11 @@ resources:
         Statistic: 'Sum'
         Period: '86400' # 24 hours in seconds, so we get one alarm per day
         EvaluationPeriods: '1'
-        Threshold: '0'
+        Threshold: '1'
         ComparisonOperator: 'LessThanOrEqualToThreshold'
+        # No invocations results in 'Insufficient data' rather than 0 invocations
+        # so we need to treat missing data as breaching to achieve the desired effect
+        TreatMissingData: 'breaching'
         AlarmActions:
           - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor-lambda-no-invocation
         Dimensions:
@@ -93,16 +96,7 @@ functions:
     timeout: 60 # seconds
     environment:
       LOG_LEVEL: 'debug'
-      BSA_PERSONALDATA_BUCKET: ${ssm:/bsa/exports/api/pdata_bucket}
-      NOTIFICATION_processor_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor
+      BSA_NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
     events:
-      - schedule:
-          name: notification-processor-event
-          description: 'Trigger notification processing'
-            rate: rate(5 minutes)
-          enabled: true
-          input:
-            key1: value1
-            key2: value2
-            stageParams:
-              stage: ${self:provider.stage}
+      - sns:
+          arn: ${ssm:/bsa/exports/notifications/notifications_processor_topic_arn}

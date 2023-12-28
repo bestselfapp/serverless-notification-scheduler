@@ -108,6 +108,13 @@ resources:
           - Name: FunctionName
             Value: bsa-notification-submitter
 
+    NotificationTopicSsmExport:
+      Type: 'AWS::SSM::Parameter'
+      Properties:
+        Name: /bsa/exports/notifications/notifications_processor_topic_arn
+        Type: String
+        Value: 'arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor'
+
 functions:
   bsa-notification-submitter:
     name: 'bsa-notification-submitter'
@@ -115,7 +122,7 @@ functions:
     timeout: 60 # seconds
     environment:
       LOG_LEVEL: 'debug'
-      BSA_PERSONALDATA_BUCKET: ${ssm:/bsa/exports/api/pdata_bucket}
+      NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
       NOTIFICATION_PROCESSOR_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor
     events:
       - schedule:

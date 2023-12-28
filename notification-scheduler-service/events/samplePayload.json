@@ -1,7 +1,7 @@
 {
     "uniqueProperties": {
         "userId": "12345",
-        "messageId": "dailyReminder",
+        "messageId": "dailyReminder"
     },
     "message": {
         "title": "BestSelfApp",

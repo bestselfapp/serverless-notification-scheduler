@@ -2,6 +2,10 @@
 
 A NotificationProcessor receives the notification submitter messages and sends the notification.
 
+Log (append) all messages sent to the user in S3, store notificationType (SMS, push), the message, and the time.
+
+Adaptive message and adaptive timing need to be applied here, not in the scheduler service.
+
 ## Build
 
 The build requires the Github Token so it has access to pull the private npm repos from Github Packages.  This token is passed into the docker build via the `--build-arg GITHUB_TOKEN` below.  This token is generated in Github via [this guide](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-to-github-packages) (when generating for the first time).  If you already have your token it will be in your `~/npmrc` file, see:
@@ -43,20 +47,6 @@ docker run -it -p 80:8080 \
     -v $(pwd):/opt/node_app/app \
     -v ~/.aws/:/root/.aws/ \
     -e AWS_ENV -e AWS_PROFILE=$PROFILE -e EVENTPATH \
-    --env-file env-dev.env \
+    --env-file env-dev.env --env-file env-secrets.env \
     bestselfapp/notification-processor:latest slsinvokelocal
 ```
-
-## Test
-
-```shell
-export AWS_ENV="dev" && export AWS_PROFILE="bsa$AWS_ENV"
-# see local setup section above to create env-secrets.env file
-docker run -it \
-    -v $(pwd):/opt/node_app/app \
-    -v ~/.aws/:/root/.aws/ \
-    -e AWS_ENV -e AWS_PROFILE \
-    --env-file env-dev.env \
-    bestselfapp/notification-processor:latest test
-```
-

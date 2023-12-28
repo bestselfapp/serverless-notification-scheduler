@@ -118,6 +118,14 @@ resources:
           - Name: FunctionName
             Value: bsa-notification-scheduler
 
+    NotificationBucketSsmExport:
+      Type: 'AWS::SSM::Parameter'
+      Properties:
+        Name: /bsa/exports/notifications/notifications_bucket
+        Type: String
+        Value: 
+          Ref: NotificationsBucket
+
 functions:
   bsa-notification-scheduler:
     name: 'bsa-notification-scheduler'
