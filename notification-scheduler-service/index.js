@@ -6,6 +6,7 @@ const Joi = require('joi');
 const axios = require('axios');
 const crypto = require('crypto');
 
+// NOTE: this needs to be updated in both scheduler and processor
 const schema = Joi.object({
     // Define your schema here based on the structure of the sample message
     // For example:
@@ -46,7 +47,7 @@ async function processNotification(event) {
             logger.error(`Notification Scheduler - Invalid message.  Error: ${error}, Message: ${JSON.stringify(message)}`);
             throw error;
         }
-        logger.debug('Notification Scheduler - Message is valid');
+        logger.trace('Notification Scheduler - Message is valid');
 
         // find the time slot for the notification
         let timeSlot = '';
