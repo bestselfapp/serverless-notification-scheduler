@@ -1,0 +1,26 @@
+{
+    "uniqueProperties": {
+        "userId": "12345",
+        "messageId": "dailyReminder"
+    },
+    "message": {
+        "title": "BestSelfApp",
+        "subtitle": "",
+        "body": "Enter today's data!",
+        "messageContentCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
+    },
+    "scheduleType": "recurring",
+    "notificationType": "sms",
+    "pushNotificationSettings": {
+        "appleSettings": {
+            "deviceToken": "deviceTokenHere",
+            "credentials": "notSureWhatGoesHere"
+        }
+    },
+    "smsNotificationSettings": {
+        "phoneNumber": "6092734392"
+    },
+    "sendTimeUtc": "2024-01-02T02:00:00Z",
+    "enableAdaptiveTiming": true,
+    "adaptiveTimingCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/adaptiveTiming/12345"
+}
