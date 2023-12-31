@@ -1,10 +1,11 @@
 # Notification Services
 
-See the README's in each subservice.
+See the README's in each subservice. !!!
 
 Misc todo:
 
 * Send a welcome message:
+(what will prompt sending this?)
 BestSelfApp - Hi there, we'll use this phone number to send you reminders to log your daily goals and events data in the app.  If you ever change your mind you can update your settings in the app or reply here with STOP.
 
 * Test links to jump to the app:
