@@ -97,6 +97,7 @@ functions:
     environment:
       LOG_LEVEL: 'debug'
       BSA_NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
+      BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
     events:
       - sns:
           arn: ${ssm:/bsa/exports/notifications/notifications_processor_topic_arn}

@@ -7,7 +7,7 @@
         "title": "BestSelfApp",
         "subtitle": "",
         "body": "Remember to log today's data!",
-        "messageContentCallbackUrl": ""
+        "messageContentCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/notifications/messages/42606309"
     },
     "scheduleType": "recurring",
     "notificationType": "sms",
@@ -22,5 +22,5 @@
     },
     "sendTimeUtc": "2024-01-02T02:00:00Z",
     "enableAdaptiveTiming": true,
-    "adaptiveTimingCallbackUrl": ""
+    "adaptiveTimingCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/notifications/timing/42606309"
 }

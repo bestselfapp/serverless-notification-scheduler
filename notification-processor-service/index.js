@@ -5,6 +5,7 @@ const logger = require('./logger');
 const Joi = require('joi');
 const processSms = require('./processSms');
 const processPush = require('./processPush');
+const axios = require('axios');
 
 // NOTE: this needs to be updated in both scheduler and processor
 const schema = Joi.object({
@@ -53,6 +54,11 @@ async function processNotification(event) {
         logger.trace('Notification Processor - Message is valid');
 
         // TODO: process the callbacks here for adaptive message & timing
+        if (event.message.messageContentCallbackUrl) {
+            const adaptiveMessageResponse = await getAdaptiveMessage(event.message.messageContentCallbackUrl);            
+            event.message = adaptiveMessageResponse;
+            logger.debug(`Notification Processor - Using adaptive message: ${adaptiveMessageResponse}`);
+        }
 
         if (event.notificationType == 'push') {
             await processPush(event);
@@ -135,6 +141,25 @@ async function logMessage(logStruct) {
     }
     catch (err) {
         logger.error(`Error logging message: ${err}`);
+        throw err;
+    }
+}
+
+async function getAdaptiveMessage(messageContentCallbackUrl) {
+    try {
+        logger.debug(`Notification Processor - Adaptive message callback URL: ${messageContentCallbackUrl}`);
+        //logger.error(`config.BSA_CALLBACKS_APIKEY: ${config.BSA_CALLBACKS_APIKEY}`);
+        // call the adaptive message callback
+        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
+            headers: {
+                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
+            }
+        });
+        logger.debug(`Notification Processor - Adaptive message response: ${adaptiveMessageResponse.data}`);
+        return adaptiveMessageResponse.data;
+    }
+    catch (err) {
+        logger.error(`Notification Processor - Error in getAdaptiveMessage: ${err}`);
         throw err;
     }
 }

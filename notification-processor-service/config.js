@@ -5,6 +5,7 @@ const config = {
     TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
     TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
+    BSA_CALLBACKS_APIKEY: process.env.BSA_CALLBACKS_APIKEY,
   }
   
   module.exports = config
