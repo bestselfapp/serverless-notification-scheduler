@@ -50,27 +50,13 @@ async function processNotification(event) {
         logger.trace('Notification Scheduler - Message is valid');
 
         // find the time slot for the notification
-        let timeSlot = '';
-        // if there is an adaptive time callback, call it and update the time slot
-        if (message.enableAdaptiveTiming && message.adaptiveTimingCallbackUrl) {
-            logger.debug('Notification Scheduler - Adaptive timing enabled');
-            const adaptiveTimeUtc = await getAdaptiveTime(message.adaptiveTimingCallbackUrl);
-            if (adaptiveTimeUtc) {
-                timeSlot = getTimeSlotFromDateStr(adaptiveTimeUtc);
-                logger.debug(`Notification Scheduler - Setting time slot to ${timeSlot} from adative time callback value ${adaptiveTimeUtc}`);
-            } else {
-                logger.warn(`Notification Scheduler - Adaptive timing callback did not return a valid time.  Will use sendTimeUtc instead`);
-            }
+        let timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
+        if (!timeSlot || !timeSlotFormatValid(timeSlot)) {
+            const errMsg = `Notification Scheduler - Unable to determine time slot from raw time: ${message.sendTimeUtc}`;
+            logger.error(errMsg);
+            throw new Error(errMsg);
         }
-        if (!timeSlot) {
-            timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
-            if (!timeSlot || !timeSlotFormatValid(timeSlot)) {
-                const errMsg = `Notification Scheduler - Unable to determine time slot from raw time: ${message.sendTimeUtc}`;
-                logger.error(errMsg);
-                throw new Error(errMsg);
-            }
-            logger.debug(`Notification Scheduler - Setting time slot to: ${timeSlot} from raw time: ${message.sendTimeUtc}`);
-        }
+        logger.debug(`Notification Scheduler - Setting time slot to: ${timeSlot} from raw time: ${message.sendTimeUtc}`);
 
         const timeSlotMinutePart = parseInt(timeSlot.split('-')[1]);
         if (timeSlotMinutePart % 5 !== 0) {
@@ -91,12 +77,6 @@ async function processNotification(event) {
             } else {
                 await deleteUid(UidTimeSlot, Uid);
             }
-        }
-
-        // if adaptive message
-        if (message.message.messageContentCallbackUrl) {
-            const adaptiveMessageResponse = await getAdaptiveMessage(message.message.messageContentCallbackUrl);            
-            message.message = adaptiveMessageResponse;
         }
 
         // save the notification to the time slot folder
@@ -189,20 +169,6 @@ async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
     }
     catch (err) {
         logger.error(`Notification Scheduler - Error in getAdaptiveTime: ${err}`);
-        throw err;
-    }
-}
-
-async function getAdaptiveMessage(messageContentCallbackUrl) {
-    try {
-        logger.debug(`Notification Scheduler - Adaptive message callback URL: ${messageContentCallbackUrl}`);
-        // call the adaptive message callback
-        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl);
-        logger.debug(`Notification Scheduler - Adaptive message response: ${adaptiveMessageResponse.data}`);
-        return adaptiveMessageResponse.data;
-    }
-    catch (err) {
-        logger.error(`Notification Scheduler - Error in getAdaptiveMessage: ${err}`);
         throw err;
     }
 }
