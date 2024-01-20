@@ -1,0 +1,9 @@
+{
+    "name": "notification-submitter",
+    "hostname": "169.254.10.13",
+    "pid": 8,
+    "level": 30,
+    "msg": "Processing raw event: {\n  \"key1\": \"value1\",\n  \"key2\": \"value2\",\n  \"stageParams\": {\n    \"stage\": \"live\"\n  }\n}",
+    "time": "2023-12-27T03:45:31.576Z",
+    "v": 0
+}
