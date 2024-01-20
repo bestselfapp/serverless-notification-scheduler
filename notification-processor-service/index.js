@@ -25,7 +25,7 @@ const schema = Joi.object({
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
     scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('push', 'sms').required(),
+    notificationType: Joi.string().valid('push', 'sms', 'none').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
@@ -64,25 +64,29 @@ async function processNotification(event) {
             await processPush(event);
         } else if (event.notificationType == 'sms') {
             await processSms(event);
+        } else if (event.notificationType == 'none') {
+            logger.info(`Notification Processor - Skipping notification for user ${event.uniqueProperties.userId}, messageId: ${event.uniqueProperties.messageId}`);
         } else {
             const errMsg = `Invalid notification type: ${event.notificationType} for user ${event.uniqueProperties.userId}, messageId: ${event.uniqueProperties.messageId}`;
             logger.error(errMsg);
             throw new Error(errMsg);
         }
 
-        // log the message
-        const logStruct = {
-            bucket: config.NOTIFICATION_BUCKET,
-            userId: event.uniqueProperties.userId,
-            messageId: event.uniqueProperties.messageId,
-            message: event.message,
-            sendTimeUtc: event.sendTimeUtc,
-            actualSendTimeUtc: new Date().toISOString(),
-            notificationType: event.notificationType,
-        }
-        await logMessage(logStruct);
+        if (event.notificationType != 'none') {
+            // log the message
+            const logStruct = {
+                bucket: config.NOTIFICATION_BUCKET,
+                userId: event.uniqueProperties.userId,
+                messageId: event.uniqueProperties.messageId,
+                message: event.message,
+                sendTimeUtc: event.sendTimeUtc,
+                actualSendTimeUtc: new Date().toISOString(),
+                notificationType: event.notificationType,
+            }
+            await logMessage(logStruct);
 
-        logger.info(`Successfully sent notification for user ${event.uniqueProperties.userId}, messageId: ${event.uniqueProperties.messageId}`);
+            logger.info(`Successfully sent notification for user ${event.uniqueProperties.userId}, messageId: ${event.uniqueProperties.messageId}`);
+        }
     }
     catch (err) {
         logger.error(`Error in notification processor: ${err}`);

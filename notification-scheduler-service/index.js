@@ -24,7 +24,7 @@ const schema = Joi.object({
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
     scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('push', 'sms').required(),
+    notificationType: Joi.string().valid('push', 'sms', 'none').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
@@ -77,6 +77,11 @@ async function processNotification(event) {
             } else {
                 await deleteUid(UidTimeSlot, Uid);
             }
+        }
+
+        if (message.notificationType == 'none') {
+            logger.info(`Notification Scheduler - Skipping saving notification (marked as 'none') for user ${message.uniqueProperties.userId}, messageId: ${message.uniqueProperties.messageId}`);
+            return;
         }
 
         // save the notification to the time slot folder
@@ -159,18 +164,18 @@ async function saveNotification(timeSlot, Uid, message) {
     }
 }
 
-async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
-    try {
-        logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}`);
-        // call the adaptive timing callback
-        const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl);
-        logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse.data}`);
-        return adaptiveTimingResponse.data;
-    }
-    catch (err) {
-        logger.error(`Notification Scheduler - Error in getAdaptiveTime: ${err}`);
-        throw err;
-    }
-}
+// async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
+//     try {
+//         logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}`);
+//         // call the adaptive timing callback
+//         const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl);
+//         logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse.data}`);
+//         return adaptiveTimingResponse.data;
+//     }
+//     catch (err) {
+//         logger.error(`Notification Scheduler - Error in getAdaptiveTime: ${err}`);
+//         throw err;
+//     }
+// }
 
 module.exports.handler = processNotification

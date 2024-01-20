@@ -9,6 +9,39 @@
 Good example reference for iOS push notifications payload:
 https://tanaschita.com/20230417-cheatsheet-for-anatomy-of-ios-push-notifications/
 
+## Interface
+
+The payload to the SNS topic for this service to schedule a notification is in the below format.  To delete a notification, use notificationType: 'none'.
+
+```json
+{
+    "uniqueProperties": {
+        "userId": "12345",
+        "messageId": "dailyReminder"
+    },
+    "message": {
+        "title": "BestSelfApp",
+        "subtitle": "",
+        "body": "Enter today's data!",
+        "messageContentCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
+    },
+    "scheduleType": "recurring",
+    "notificationType": "sms",
+    "pushNotificationSettings": {
+        "appleSettings": {
+            "deviceToken": "deviceTokenHere",
+            "credentials": "notSureWhatGoesHere"
+        }
+    },
+    "smsNotificationSettings": {
+        "phoneNumber": "6092734392"
+    },
+    "sendTimeUtc": "2024-01-02T02:00:00Z",
+    "enableAdaptiveTiming": true,
+    "adaptiveTimingCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/adaptiveTiming/12345"
+}
+```
+
 ## Build
 
 The build requires the Github Token so it has access to pull the private npm repos from Github Packages.  This token is passed into the docker build via the `--build-arg GITHUB_TOKEN` below.  This token is generated in Github via [this guide](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-to-github-packages) (when generating for the first time).  If you already have your token it will be in your `~/npmrc` file, see:
