@@ -11,7 +11,7 @@ if (process.stdout.isTTY) {
 }
 
 module.exports = bunyan.createLogger({
-    name: 'notification-submitter',
+    name: 'notification-processor',
     streams: [
         {
             level: config.LOG_LEVEL,
