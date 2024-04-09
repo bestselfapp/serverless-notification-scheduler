@@ -24,7 +24,7 @@ const schema = Joi.object({
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
     scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('push', 'sms').required(),
+    notificationType: Joi.string().valid('none', 'push', 'sms').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
@@ -38,8 +38,8 @@ async function processNotification(event) {
     logger.debug('Starting notification scheduler');
 
     try {
-
         const message = JSON.parse(event.Records[0].Sns.Message);
+        logger.trace(`Processing raw event: ${JSON.stringify(message, null, 2)}`);
 
         // validate the message
         const { error } = schema.validate(message);
@@ -59,7 +59,7 @@ async function processNotification(event) {
                 timeSlot = getTimeSlotFromDateStr(adaptiveTimeUtc);
                 logger.debug(`Notification Scheduler - Setting time slot to ${timeSlot} from adative time callback value ${adaptiveTimeUtc}`);
             } else {
-                logger.warn(`Notification Scheduler - Adaptive timing callback did not return a valid time.  Will use sendTimeUtc instead`);
+                logger.warn(`Notification Scheduler - Adaptive timing callback error or did not return a valid time.  Will use sendTimeUtc instead`);
             }
         }
         if (!timeSlot) {
@@ -96,7 +96,11 @@ async function processNotification(event) {
         // if adaptive message
         if (message.message.messageContentCallbackUrl) {
             const adaptiveMessageResponse = await getAdaptiveMessage(message.message.messageContentCallbackUrl);            
-            message.message = adaptiveMessageResponse;
+            if (adaptiveMessageResponse) {
+                message.message = adaptiveMessageResponse;
+            } else {
+                logger.warn(`Notification Scheduler - Adaptive message callback error or did not return a valid message.  Will use original message instead`);
+            }
         }
 
         // save the notification to the time slot folder
@@ -179,31 +183,52 @@ async function saveNotification(timeSlot, Uid, message) {
     }
 }
 
+// returns a redacted version of the secret string with only the first and
+// last 4 characters visible
+function redactSecretString(secret) {
+    const start = secret.substring(0, 4);
+    const end = secret.substring(secret.length - 4);
+    const redactedSecret = start + secret.substring(4, secret.length - 4).replace(/./g, '*') + end;
+    return redactedSecret;
+}
+
 async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
     try {
-        logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}`);
+        const redactedApiKey = redactSecretString(process.env.BSA_CALLBACKS_APIKEY);
+        logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}, API Key: ${redactedApiKey}`);
         // call the adaptive timing callback
-        const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl);
+        const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl, {
+            headers: {
+                'bsa-callbacks-apikey': process.env.BSA_CALLBACKS_APIKEY
+            }
+        });
         logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse.data}`);
         return adaptiveTimingResponse.data;
     }
     catch (err) {
         logger.error(`Notification Scheduler - Error in getAdaptiveTime: ${err}`);
-        throw err;
+        //throw err;
+        return null;
     }
 }
 
 async function getAdaptiveMessage(messageContentCallbackUrl) {
     try {
-        logger.debug(`Notification Scheduler - Adaptive message callback URL: ${messageContentCallbackUrl}`);
+        const redactedApiKey = redactSecretString(process.env.BSA_CALLBACKS_APIKEY);
+        logger.debug(`Notification Scheduler - Adaptive message callback URL: ${messageContentCallbackUrl}, API Key: ${redactedApiKey}`);
         // call the adaptive message callback
-        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl);
+        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
+            headers: {
+                'bsa-callbacks-apikey': process.env.BSA_CALLBACKS_APIKEY
+            }
+        });
         logger.debug(`Notification Scheduler - Adaptive message response: ${adaptiveMessageResponse.data}`);
         return adaptiveMessageResponse.data;
     }
     catch (err) {
         logger.error(`Notification Scheduler - Error in getAdaptiveMessage: ${err}`);
-        throw err;
+        //throw err;
+        return null;
     }
 }
 

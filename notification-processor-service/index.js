@@ -80,6 +80,8 @@ async function processNotification(event) {
     }
     catch (err) {
         logger.error(`Error in notification processor: ${err}`);
+        logger.error(`Stack trace: ${err.stack}`);
+        logger.error(`Event: ${JSON.stringify(event, null, 2)}`);
         throw err;
     }
 };

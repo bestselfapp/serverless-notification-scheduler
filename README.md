@@ -1,6 +1,20 @@
 # Notification Services
 
-See the README's in each subservice. !!!
+See the README's in each subservice for more info.
+
+## Notification Scheduler Service (SNS -> Lambda)
+
+The front door.  This is where you configure notifications idempotently.  Stores notification configuration on S3 in a path structure that indicates the time slot.
+
+## Notification Processor Service (EventBridge cron every 5 mins -> Lambda)
+
+A NotificaitonSubmitter lambda runs on a cron every five minutes, finds all notifications in the s3 structure specified under the current timeslot it is processing, and sends them for Notification Processing by posting them to SNS->Lambda. (similar to the batch-analysis-submitter)
+
+## Notification Processor Service (SNS -> Lambda)
+
+A NotificationProcessor receives the notification submitter messages and sends the notification.
+
+## Outstanding
 
 Misc todo:
 
@@ -15,7 +29,7 @@ bestselfapp://main
 
 * Support notificationTypes: sms, push, NONE
 
-Twilio Info:
+## Twilio Info
 
 Customer Profile
 BU1d3bd45988a801364045b69077d4dfb8
