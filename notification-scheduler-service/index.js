@@ -52,7 +52,7 @@ async function processNotification(event) {
         try {
             const sendTime = new Date(message.sendTimeUtc);
             const sendTimeEstString = convertUtcDateToEstString(sendTime);
-            logger.trace(`Notification Scheduler - Input dateStr ${message.sendTimeUtc} in EST: ${sendTimeEstString}`);
+            logger.debug(`Notification Scheduler - Input dateStr from SNS message: ${message.sendTimeUtc} in EST: ${sendTimeEstString}`);
         }
         catch (err) {
             logger.error(`Notification Scheduler - Error parsing dateStr: ${message.sendTimeUtc}`);
@@ -271,16 +271,17 @@ function convertUtcDateToEstString(utcDate) {
     return estTimeString;
 }
 
+const moment = require('moment-timezone');
 function convertUtcTimeSlotStringToEst(timeStr) {
     try {
         // Split the time string into hours and minutes
         const [hours, minutes] = timeStr.split('-').map(Number);
 
-        // Create a Date object for the current date and specified time in UTC
-        const utcDate = new Date(Date.UTC(1970, 0, 1, hours, minutes));
+        // Create a moment object for the current date and specified time in UTC
+        const utcMoment = moment.utc().set({ hour: hours, minute: minutes, second: 0 });
 
-        // Convert the Date object to the local time string in EST
-        const estTimeString = utcDate.toLocaleString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true });
+        // Convert the moment object to the local time string in EST
+        const estTimeString = utcMoment.tz('America/New_York').format('hh:mm A');
 
         return estTimeString;
     } catch (err) {
