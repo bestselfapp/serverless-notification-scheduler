@@ -95,8 +95,12 @@ functions:
     handler: index.handler
     timeout: 60 # seconds
     environment:
-      LOG_LEVEL: 'debug'
-      BSA_NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
+      LOG_LEVEL: 'trace'
+      NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
+      TWILIO_ACCOUNT_SID: ${ssm:/bsa/TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${ssm:/bsa/TWILIO_AUTH_TOKEN}
+      TWILIO_FROM_NUMBER: ${ssm:/bsa/TWILIO_FROM_NUMBER}
+      BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
     events:
       - sns:
           arn: ${ssm:/bsa/exports/notifications/notifications_processor_topic_arn}

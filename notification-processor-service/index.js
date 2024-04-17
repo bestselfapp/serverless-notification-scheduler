@@ -40,26 +40,42 @@ async function processNotification(event) {
     try {
         // event is passed as an object
         logger.trace(`Raw event:\n${JSON.stringify(event, null, 2)}`);
-        
-        logger.info(`Processing ${event.notificationType} notification for user ${event.uniqueProperties.userId}, messageId: ${event.uniqueProperties.messageId}`);
+
+        // Extract the first record and parse the message
+        const message = JSON.parse(event.Records[0].Sns.Message);
+
+        // Extract the values
+        const notificationType = message.notificationType;
+        const userId = message.uniqueProperties.userId;
+        const messageId = message.uniqueProperties.messageId;
+
+        logger.info(`Processing ${notificationType} notification for user ${userId}, messageId: ${messageId}`);
 
         // validate the message
         // message format, see: ./events/validSmsNotification.json
-        const { error } = schema.validate(event);
+        const { error } = schema.validate(message);
         if (error) {
-            logger.error(`Notification Processor - Invalid event message.  Error: ${error}, Message: ${JSON.stringify(event)}`);
+            logger.error(`Notification Processor - Invalid event message.  Error: ${error}, Message: ${JSON.stringify(message)}`);
             throw error;
         }
         logger.trace('Notification Processor - Message is valid');
 
-        // TODO: process the callbacks here for adaptive message & timing
+        // if adaptive message
+        if (message.message.messageContentCallbackUrl) {
+            const adaptiveMessageResponse = await getAdaptiveMessage(message.message.messageContentCallbackUrl);            
+            if (adaptiveMessageResponse) {
+                message.message.body = adaptiveMessageResponse;
+            } else {
+                logger.warn(`Notification Processor - Adaptive message callback error or did not return a valid message.  Will use original message instead`);
+            }
+        }
 
-        if (event.notificationType == 'push') {
-            await processPush(event);
-        } else if (event.notificationType == 'sms') {
-            await processSms(event);
+        if (notificationType == 'push') {
+            await processPush(message);
+        } else if (notificationType == 'sms') {
+            await processSms(message);
         } else {
-            const errMsg = `Invalid notification type: ${event.notificationType} for user ${event.uniqueProperties.userId}, messageId: ${event.uniqueProperties.messageId}`;
+            const errMsg = `Invalid notification type: ${notificationType} for user ${userId}, messageId: ${messageId}`;
             logger.error(errMsg);
             throw new Error(errMsg);
         }
@@ -67,16 +83,21 @@ async function processNotification(event) {
         // log the message
         const logStruct = {
             bucket: config.NOTIFICATION_BUCKET,
-            userId: event.uniqueProperties.userId,
-            messageId: event.uniqueProperties.messageId,
-            message: event.message,
-            sendTimeUtc: event.sendTimeUtc,
+            userId: userId,
+            messageId: messageId,
+            message: message.message,
+            sendTimeUtc: message.sendTimeUtc,
             actualSendTimeUtc: new Date().toISOString(),
-            notificationType: event.notificationType,
+            notificationType: notificationType,
         }
         await logMessage(logStruct);
 
-        logger.info(`Successfully sent notification for user ${event.uniqueProperties.userId}, messageId: ${event.uniqueProperties.messageId}`);
+        logger.info(`Successfully sent notification for user ${userId}, messageId: ${messageId}`);
+
+        // TODO: process the message timing callback here
+        // if adaptive timing returns a new time, reschedule the message by
+        // calling the scheduler with the new time
+
     }
     catch (err) {
         logger.error(`Error in notification processor: ${err}`);
@@ -85,6 +106,55 @@ async function processNotification(event) {
         throw err;
     }
 };
+
+// returns a redacted version of the secret string with only the first and
+// last 4 characters visible
+function redactSecretString(secret) {
+    const start = secret.substring(0, 4);
+    const end = secret.substring(secret.length - 4);
+    const redactedSecret = start + secret.substring(4, secret.length - 4).replace(/./g, '*') + end;
+    return redactedSecret;
+}
+
+async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
+    try {
+        const redactedApiKey = redactSecretString(config.BSA_CALLBACKS_APIKEY);
+        logger.debug(`Notification Processor - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}, API Key: ${redactedApiKey}`);
+        // call the adaptive timing callback
+        const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl, {
+            headers: {
+                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
+            }
+        });
+        logger.debug(`Notification Processor - Adaptive timing response: ${adaptiveTimingResponse.data}`);
+        return adaptiveTimingResponse.data;
+    }
+    catch (err) {
+        logger.error(`Notification Processor - Error in getAdaptiveTime: ${err}`);
+        //throw err;
+        return null;
+    }
+}
+
+async function getAdaptiveMessage(messageContentCallbackUrl) {
+    try {
+        const redactedApiKey = redactSecretString(config.BSA_CALLBACKS_APIKEY);
+        logger.debug(`Notification Processor - Adaptive message callback URL: ${messageContentCallbackUrl}, API Key: ${redactedApiKey}`);
+        // call the adaptive message callback
+        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
+            headers: {
+                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
+            }
+        });
+        logger.debug(`Notification Processor - Adaptive message response: ${adaptiveMessageResponse.data}`);
+        return adaptiveMessageResponse.data;
+    }
+    catch (err) {
+        logger.error(`Notification Processor - Error in getAdaptiveMessage: ${err}`);
+        //throw err;
+        return null;
+    }
+}
 
 async function logMessage(logStruct) {
     /* logStruct format:
