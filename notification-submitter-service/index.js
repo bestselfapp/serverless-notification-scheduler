@@ -30,7 +30,7 @@ async function processTimeSlot(event) {
         let notificationsSubmitted = 0;
         let notificationsDeleted = 0;
         for (const notificationKey of notificationsInTimeSlot) {
-            logger.debug(`Processing notification: ${notificationKey}`);
+            logger.info(`Processing notification: ${notificationKey} from timeslot ${timeSlot}`);
             const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
             const notificationObj = await s3db.get(notificationKey);
             // post to the processor SNS topic
@@ -40,7 +40,7 @@ async function processTimeSlot(event) {
                 TopicArn: config.NOTIFICATION_PROCESSOR_TOPIC_ARN
             };
             await sns.publish(params).promise();
-            logger.trace(`Message posted to SNS topic: ${config.NOTIFICATION_PROCESSOR_TOPIC_ARN}, message: ${params.Message}`);
+            logger.debug(`Message posted to SNS topic: ${config.NOTIFICATION_PROCESSOR_TOPIC_ARN}, message: ${params.Message}`);
 
             // if it is a one-time notification, delete it
             if (notificationObj.scheduleType === 'one-time') {
