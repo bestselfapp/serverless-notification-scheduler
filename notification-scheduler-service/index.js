@@ -49,10 +49,14 @@ async function processNotification(event) {
         }
         logger.trace('Notification Scheduler - Message is valid');
 
+        // generate a unique string from the unique properties of the notification
+        //const hash = generateHash(message.uniqueProperties.message);
+        const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
+
         try {
             const sendTime = new Date(message.sendTimeUtc);
             const sendTimeEstString = convertUtcDateToEstString(sendTime);
-            logger.debug(`Notification Scheduler - Input dateStr from SNS message: ${message.sendTimeUtc} in EST: ${sendTimeEstString}`);
+            logger.debug(`Notification Scheduler - Input dateStr from SNS message: ${message.sendTimeUtc} in EST: ${sendTimeEstString} for Uid: ${Uid}`);
         }
         catch (err) {
             logger.error(`Notification Scheduler - Error parsing dateStr: ${message.sendTimeUtc}`);
@@ -87,10 +91,6 @@ async function processNotification(event) {
             logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
         }
         
-        // generate a unique string from the unique properties of the notification
-        //const hash = generateHash(message.uniqueProperties.message);
-        const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
-
         // check if the unique hash exists in any time slot folder
         const UidTimeSlots = await findUidTimeSlots(Uid);
 
@@ -112,7 +112,7 @@ async function processNotification(event) {
         if (message.message.messageContentCallbackUrl) {
             const adaptiveMessageResponse = await getAdaptiveMessage(message.message.messageContentCallbackUrl);            
             if (adaptiveMessageResponse) {
-                message.message = adaptiveMessageResponse;
+                message.message.body = adaptiveMessageResponse;
             } else {
                 logger.warn(`Notification Scheduler - Adaptive message callback error or did not return a valid message.  Will use original message instead`);
             }
@@ -144,6 +144,9 @@ function getTimeSlotFromDateStr(dateStr) {
     }
 }
 
+// generates a unique message ID from the user ID and message ID
+// removes special characters from the message ID
+// returns a string in the format: {userId}-{messageId}
 function generateUniqueMessageId(userId, messageId) {
     messageId = messageId.replace(/\s/g, '');
     const strippedMessageId = messageId.replace(/[^a-zA-Z0-9]/g, '');
@@ -222,12 +225,12 @@ function redactSecretString(secret) {
 
 async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
     try {
-        const redactedApiKey = redactSecretString(process.env.BSA_CALLBACKS_APIKEY);
+        const redactedApiKey = redactSecretString(config.BSA_CALLBACKS_APIKEY);
         logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}, API Key: ${redactedApiKey}`);
         // call the adaptive timing callback
         const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl, {
             headers: {
-                'bsa-callbacks-apikey': process.env.BSA_CALLBACKS_APIKEY
+                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
             }
         });
         logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse.data}`);
@@ -242,12 +245,12 @@ async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
 
 async function getAdaptiveMessage(messageContentCallbackUrl) {
     try {
-        const redactedApiKey = redactSecretString(process.env.BSA_CALLBACKS_APIKEY);
+        const redactedApiKey = redactSecretString(config.BSA_CALLBACKS_APIKEY);
         logger.debug(`Notification Scheduler - Adaptive message callback URL: ${messageContentCallbackUrl}, API Key: ${redactedApiKey}`);
         // call the adaptive message callback
         const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
             headers: {
-                'bsa-callbacks-apikey': process.env.BSA_CALLBACKS_APIKEY
+                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
             }
         });
         logger.debug(`Notification Scheduler - Adaptive message response: ${adaptiveMessageResponse.data}`);
