@@ -64,7 +64,7 @@ async function processTimeSlot(event) {
 async function getNotificationsInTimeSlot(timeSlot) {
     const s3db = new S3DB(config.NOTIFICATION_BUCKET, 'notifications/slots');
     const subPath = `${timeSlot}/`;
-    logger.debug(`Listing notifications in s3://${config.NOTIFICATION_BUCKET}/notifications/slots/${subPath}/*`);
+    logger.debug(`Listing notifications in s3://${config.NOTIFICATION_BUCKET}/notifications/slots/${subPath}*`);
     let notifications = [];
     try {
         notifications = await s3db.list(subPath);
