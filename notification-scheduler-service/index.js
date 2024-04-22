@@ -203,10 +203,11 @@ function convertUtcDateObjectToEstString(utcDate) {
 }
 
 const moment = require('moment-timezone');
-function convertUtcTimeSlotStringToEst(timeStr) {
+// takes a time slot string in the format "HH-MM" and returns a string in the format "hh:mm A EST"
+function convertUtcTimeSlotStringToEst(timeSlotStr) {
     try {
         // Split the time string into hours and minutes
-        const [hours, minutes] = timeStr.split('-').map(Number);
+        const [hours, minutes] = timeSlotStr.split('-').map(Number);
 
         // Create a moment object for the current date and specified time in UTC
         const utcMoment = moment.utc().set({ hour: hours, minute: minutes, second: 0 });
