@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const S3DB = require('@bestselfapp/s3db');
+const S3DB = require('@dwkerwin/s3db');
 const config = require('./config');
 const logger = require('./logger');
 const Joi = require('joi');
@@ -67,25 +67,12 @@ async function processNotification(event) {
         let timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
         logger.debug(`Notification Scheduler - Time slot from raw event message: ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)} EST)`);
 
-        // if there is an adaptive time callback, call it and update the time slot
-        if (message.enableAdaptiveTiming && message.adaptiveTimingCallbackUrl) {
-            logger.debug(`Notification Scheduler - Adaptive timing enabled via: ${message.adaptiveTimingCallbackUrl}`);
-            const adaptiveTimeUtc = await getAdaptiveTime(message.adaptiveTimingCallbackUrl);
-            if (adaptiveTimeUtc) {
-                timeSlot = getTimeSlotFromDateStr(adaptiveTimeUtc);
-                logger.debug(`Notification Scheduler - Updated time slot from adaptive time callback: ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)} EST)`);
-            } else {
-                logger.warn(`Notification Scheduler - Adaptive timing callback error or did not return a valid time.  Will keep original timeslot ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)} EST)`);
-            }
-        }
-
         if (!timeSlot || !timeSlotFormatValid(timeSlot)) {
             const errMsg = `Notification Scheduler - Unable to determine time slot from raw time: ${message.sendTimeUtc}`;
             logger.error(errMsg);
             throw new Error(errMsg);
         }
 
-        logger.debug(`Notification Scheduler - Proceeding with time slot: ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)} EST)`);
         const timeSlotMinutePart = parseInt(timeSlot.split('-')[1]);
         if (timeSlotMinutePart % 5 !== 0) {
             logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
@@ -106,16 +93,6 @@ async function processNotification(event) {
             }
         } else {
             logger.debug(`Notification Scheduler - Notification ${Uid} does not exist in any existing time slot`);
-        }
-
-        // if adaptive message
-        if (message.message.messageContentCallbackUrl) {
-            const adaptiveMessageResponse = await getAdaptiveMessage(message.message.messageContentCallbackUrl);            
-            if (adaptiveMessageResponse) {
-                message.message.body = adaptiveMessageResponse;
-            } else {
-                logger.warn(`Notification Scheduler - Adaptive message callback error or did not return a valid message.  Will use original message instead`);
-            }
         }
 
         // save the notification to the time slot folder
@@ -221,46 +198,6 @@ function redactSecretString(secret) {
     const end = secret.substring(secret.length - 4);
     const redactedSecret = start + secret.substring(4, secret.length - 4).replace(/./g, '*') + end;
     return redactedSecret;
-}
-
-async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
-    try {
-        const redactedApiKey = redactSecretString(config.BSA_CALLBACKS_APIKEY);
-        logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}, API Key: ${redactedApiKey}`);
-        // call the adaptive timing callback
-        const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl, {
-            headers: {
-                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
-            }
-        });
-        logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse.data}`);
-        return adaptiveTimingResponse.data;
-    }
-    catch (err) {
-        logger.error(`Notification Scheduler - Error in getAdaptiveTime: ${err}`);
-        //throw err;
-        return null;
-    }
-}
-
-async function getAdaptiveMessage(messageContentCallbackUrl) {
-    try {
-        const redactedApiKey = redactSecretString(config.BSA_CALLBACKS_APIKEY);
-        logger.debug(`Notification Scheduler - Adaptive message callback URL: ${messageContentCallbackUrl}, API Key: ${redactedApiKey}`);
-        // call the adaptive message callback
-        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
-            headers: {
-                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
-            }
-        });
-        logger.debug(`Notification Scheduler - Adaptive message response: ${adaptiveMessageResponse.data}`);
-        return adaptiveMessageResponse.data;
-    }
-    catch (err) {
-        logger.error(`Notification Scheduler - Error in getAdaptiveMessage: ${err}`);
-        //throw err;
-        return null;
-    }
 }
 
 // this function seems to be correctly returning the time in EST (not off my 1 hour)
