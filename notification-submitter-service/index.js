@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const S3DB = require('@bestselfapp/s3db');
+const S3DB = require('@dwkerwin/s3db');
 const config = require('./config');
 const logger = require('./logger');
 const Joi = require('joi');
@@ -17,20 +17,20 @@ async function processTimeSlot(event) {
         try {
             eventTime = new Date(event.time);
             if (isNaN(eventTime)) throw new Error('Invalid date');
-            logger.debug(`Event time obtained from event: ${eventTime.toISOString()} UTC (${eventTime.toLocaleString("en-US", {timeZone: "America/New_York"})} EST)`);
+            logger.debug(`Event time obtained from event (TESTING USE CASE ONLY): ${eventTime.toISOString()} UTC (${eventTime.toLocaleString("en-US", {timeZone: "America/New_York"})} EST)`);
         } catch (error) {
             eventTime = new Date();
             logger.debug(`Event time obtained from system: ${eventTime.toISOString()} UTC (${eventTime.toLocaleString("en-US", {timeZone: "America/New_York"})} EST)`);
         }
         const timeSlot = determineTimeSlotFromEventTime(eventTime);
-        logger.trace(`Processing notifications in time slot: ${timeSlot} ()`);
+        logger.trace(`Processing notifications in time slot: ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
         const notificationsInTimeSlot = await getNotificationsInTimeSlot(timeSlot);
         logger.info(`Processing ${notificationsInTimeSlot.length} notifications in time slot ${timeSlot}`);
 
         let notificationsSubmitted = 0;
         let notificationsDeleted = 0;
         for (const notificationKey of notificationsInTimeSlot) {
-            logger.info(`Processing notification: ${notificationKey} from timeslot ${timeSlot}`);
+            logger.info(`Processing notification: ${notificationKey} from timeslot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
             const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
             const notificationObj = await s3db.get(notificationKey);
             // post to the processor SNS topic
@@ -92,7 +92,7 @@ function determineTimeSlotFromEventTime(eventTime) {
     const eventTimeUtc = eventTime.toISOString();
     const timeSlot = getTimeSlotFromDateStr(eventTimeUtc);
     const adjustedTimeSlot = roundTimeSlotToNearest(timeSlot, 5);
-    logger.debug(`Adjusted time slot from ${timeSlot} (raw event time) to ${adjustedTimeSlot}`);
+    logger.debug(`Adjusted time slot from ${timeSlot} (raw event time) to ${adjustedTimeSlot} (${convertUtcTimeSlotStringToEst(adjustedTimeSlot)})`);
     return adjustedTimeSlot;
 }
 
@@ -103,6 +103,26 @@ function roundTimeSlotToNearest(timeSlot, minuteParts) {
     const minutesRounded = Math.round(minutes / minuteParts) * minuteParts;
     const timeSlotRounded = `${hours}-${minutesRounded.toString().padStart(2, '0')}`;
     return timeSlotRounded;
+}
+
+const moment = require('moment-timezone');
+// takes a time slot string in the format "HH-MM" and returns a string in the format "hh:mm A EST"
+function convertUtcTimeSlotStringToEst(timeSlotStr) {
+    try {
+        // Split the time string into hours and minutes
+        const [hours, minutes] = timeSlotStr.split('-').map(Number);
+
+        // Create a moment object for the current date and specified time in UTC
+        const utcMoment = moment.utc().set({ hour: hours, minute: minutes, second: 0 });
+
+        // Convert the moment object to the local time string in EST
+        const estTimeString = utcMoment.tz('America/New_York').format('hh:mm A');
+
+        return estTimeString + ' EST';
+    } catch (err) {
+        console.error(`Error in convertUtcTimeSlotStringToEst: ${err}`);
+        throw err;
+    }
 }
 
 module.exports.handler = processTimeSlot;
