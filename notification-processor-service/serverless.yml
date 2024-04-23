@@ -24,6 +24,7 @@ provider:
       - s3:ListBucket
     Resource:
       - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/notifications/*
+      - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/logs/*
       - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
   -
     Effect: Allow
@@ -119,6 +120,8 @@ functions:
       TWILIO_AUTH_TOKEN: ${ssm:/bsa/TWILIO_AUTH_TOKEN}
       TWILIO_FROM_NUMBER: ${ssm:/bsa/TWILIO_FROM_NUMBER}
       BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
+      MAX_NOTIFICATIONS_PER_HOUR: 1
+      MAX_NOTIFICATIONS_PER_DAY: 2
     events:
       - sns:
           arn: ${ssm:/bsa/exports/notifications/notifications_processor_topic_arn}
