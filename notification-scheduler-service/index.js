@@ -84,6 +84,7 @@ async function processNotification(event) {
         // if it does, delete the existing notification
         if (UidTimeSlots.length > 0) {
             for (const UidTimeSlot of UidTimeSlots) {
+                logger.trace(`Notification Scheduler - Checking existing notification in time slot: ${UidTimeSlot}`)
                 if (UidTimeSlot == timeSlot) {
                     logger.debug(`Notification Scheduler - Notification ${Uid} already exists in target time slot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)}), will leave it there.`);
                 } else {
@@ -134,17 +135,19 @@ function generateUniqueMessageId(userId, messageId) {
 }
 
 // returns the time slot folder the Uid is found in, or null if not found
+// returns an array like ['hh-mm', 'hh-mm', ...]
 async function findUidTimeSlots(Uid) {
     try {
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, 'notifications/slots');
         const allPaths = await s3db.list();
+        logger.trace(`All paths from s3db.list(): ${allPaths}`);
         //logger.trace(`All paths from s3db.list(): ${allPaths}`);
         let timeSlotsWithUid = [];
         for (const path of allPaths) {
             if (path.includes(Uid)) {
                 logger.trace(`UID ${Uid} found in path ${path}`);
                 // Extract the time slot folder from the path
-                const timeSlotFolder = path.split('/')[1];
+                const timeSlotFolder = path.split('/')[0];
                 timeSlotsWithUid.push(timeSlotFolder);
                 logger.debug(`UID ${Uid} found in existing time slot ${timeSlotFolder}`);
             }
@@ -165,9 +168,13 @@ function timeSlotFormatValid(timeSlot) {
 
 async function deleteUid(timeSlot, Uid) {
     try {
+        logger.trace(`deleteUid: timeSlot=${timeSlot}, Uid=${Uid}`)
         // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
         //logger.trace(`Notification Scheduler - Deleting existing notification in time slot: ${timeSlot}`);
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
+        if (!s3db.exists(Uid)) {
+            logger.warn(`Notification Scheduler - Wants to delete a notification that can not be found at s3://${config.NOTIFICATION_BUCKET}/notifications/slots/${timeSlot}/${Uid}.json`);
+        }
         await s3db.delete(Uid);
         logger.info(`Notification Scheduler - Deleted existing notification ${Uid} in time slot ${timeSlot}`);
     }
@@ -182,7 +189,7 @@ async function saveNotification(timeSlot, Uid, message) {
         // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
         logger.trace(`Notification Scheduler - Saving notification to time slot: ${timeSlot}`);
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
-        await s3db.put(`${Uid}.json`, message);
+        await s3db.put(Uid, message);
         logger.info(`Notification Scheduler - Saved notification ${Uid} to time slot ${timeSlot}`);
     }
     catch (err) {
