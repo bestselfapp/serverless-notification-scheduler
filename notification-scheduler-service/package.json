@@ -10,7 +10,7 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@bestselfapp/personaldata-lib": "^1.2.3",
-    "@dwkerwin/s3db": "^2.0.1",
+    "@dwkerwin/s3db": "^2.0.2",
     "axios": "^1.6.2",
     "bunyan": "^1.8.15",
     "bunyan-prettystream": "^0.1.3",

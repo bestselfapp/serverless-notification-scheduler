@@ -168,7 +168,7 @@ async function deleteUid(timeSlot, Uid) {
         // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
         //logger.trace(`Notification Scheduler - Deleting existing notification in time slot: ${timeSlot}`);
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
-        await s3db.delete(`${Uid}.json`);
+        await s3db.delete(Uid);
         logger.info(`Notification Scheduler - Deleted existing notification ${Uid} in time slot ${timeSlot}`);
     }
     catch (err) {
