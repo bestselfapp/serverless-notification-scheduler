@@ -1,5 +1,6 @@
 const AWS = require('aws-sdk');
 const S3DB = require('@dwkerwin/s3db');
+const axios = require('axios');
 const config = require('./config');
 const logger = require('./logger');
 const Joi = require('joi');
@@ -162,57 +163,62 @@ async function getAdaptiveMessage(messageContentCallbackUrl) {
 }
 
 async function canSendNotification(userId) {
-    logger.debug(`Checking notification usage vs limits for user ${userId}`)
-    const s3db = new S3DB(config.NOTIFICATION_BUCKET, 'userNotificationMetrics');
-    let record = await s3db.get(userId, { returnNullIfNotFound: true });
+    try {
+        logger.debug(`Checking notification usage vs limits for user ${userId}`)
+        const s3db = new S3DB(config.NOTIFICATION_BUCKET, 'userNotificationMetrics');
+        let record = await s3db.get(userId, { returnNullIfNotFound: true });
 
-    const now = Date.now();
-    const oneHourAgo = now - 60 * 60 * 1000;
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const oneHourAgo = now - 60 * 60 * 1000;
+        const oneDayAgo = now - 24 * 60 * 60 * 1000;
+        const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
 
-    // If the record doesn't exist, create a new one
-    if (!record) {
-        record = {
-            hourly: { count: 1, timestamp: now },
-            daily: { count: 1, timestamp: now }
-        };
-    } else {
-        // Delete the record if it's more than a week old
-        if (record.hourly.timestamp < oneWeekAgo || record.daily.timestamp < oneWeekAgo) {
-            await s3db.delete(userId);
-            record = { hourly: { count: 0, timestamp: now }, daily: { count: 0, timestamp: now } };
+        // If the record doesn't exist, create a new one
+        if (!record) {
+            record = {
+                hourly: { count: 0, timestamp: now },
+                daily: { count: 0, timestamp: now }
+            };
+        } else {
+            // Delete the record if it's more than a week old
+            if (record.hourly.timestamp < oneWeekAgo || record.daily.timestamp < oneWeekAgo) {
+                await s3db.delete(userId);
+                record = { hourly: { count: 0, timestamp: now }, daily: { count: 0, timestamp: now } };
+            }
         }
-    }
+        
+        // Initialize counts if they don't exist or if the timestamps are too old
+        if (!record.hourly || record.hourly.timestamp < oneHourAgo) {
+            record.hourly = { count: 0, timestamp: now };
+        }
+        if (!record.daily || record.daily.timestamp < oneDayAgo) {
+            record.daily = { count: 0, timestamp: now };
+        }
 
-    // Initialize counts if they don't exist or if the timestamps are too old
-    if (!record.hourly || record.hourly.timestamp < oneHourAgo) {
-        record.hourly = { count: 0, timestamp: now };
-    }
-    if (!record.daily || record.daily.timestamp < oneDayAgo) {
-        record.daily = { count: 0, timestamp: now };
-    }
+        // Check if we can send a notification
+        if (record.hourly.count >= config.MAX_NOTIFICATIONS_PER_HOUR) {
+            logger.warn(`Cannot send notification to user ${userId} because the hourly limit of ${config.MAX_NOTIFICATIONS_PER_HOUR} has been reached. ${record.hourly.count} notifications have been sent in the last hour.`);
+            return false;
+        }
+        if (record.daily.count >= config.MAX_NOTIFICATIONS_PER_DAY) {
+            logger.warn(`Cannot send notification to user ${userId} because the daily limit of ${config.MAX_NOTIFICATIONS_PER_DAY} has been reached. ${record.daily.count} notifications have been sent today.`);
+            return false;
+        }
 
-    // Check if we can send a notification
-    if (record.hourly.count >= config.MAX_NOTIFICATIONS_PER_HOUR) {
-        logger.warn(`Cannot send notification to user ${userId} because the hourly limit of ${config.MAX_NOTIFICATIONS_PER_HOUR} has been reached. ${record.hourly.count} notifications have been sent in the last hour.`);
-        return false;
+        // Increment counts and update timestamps
+        record.hourly.count++;
+        record.hourly.timestamp = now;
+        record.daily.count++;
+        record.daily.timestamp = now;
+
+        // Update the record in S3
+        await s3db.put(userId, record);
+
+        return true;
+    } catch (error) {
+        logger.error(`An error occurred while checking notification usage for user ${userId}: ${error.message}`);
+        throw error;
     }
-    if (record.daily.count >= config.MAX_NOTIFICATIONS_PER_DAY) {
-        logger.warn(`Cannot send notification to user ${userId} because the daily limit of ${config.MAX_NOTIFICATIONS_PER_DAY} has been reached. ${record.daily.count} notifications have been sent today.`);
-        return false;
-    }
-
-    // Increment counts and update timestamps
-    record.hourly.count++;
-    record.hourly.timestamp = now;
-    record.daily.count++;
-    record.daily.timestamp = now;
-
-    // Update the record in S3
-    await s3db.put(userId, record);
-
-    return true;
 }
 
 async function logMessage(logStruct) {
