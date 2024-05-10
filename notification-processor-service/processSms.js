@@ -1,4 +1,4 @@
-const TwilioSmsPlus = require('./twilioSmsPlus');
+const TwilioSmsPlus = require('twilio-sms-plus');
 const config = require('./config');
 const logger = require('./logger');
 
@@ -20,6 +20,21 @@ async function sendMessage(event) {
             twilioAccountSide: config.TWILIO_ACCOUNT_SID,
             twilioAuthToken: config.TWILIO_AUTH_TOKEN
         });
+        const isOptedOut = await twilioPlus.isOptedOut(params.toPhoneNumber);
+        if (isOptedOut) {
+            logger.warn(`Phone number ${params.toPhoneNumber} has opted out of SMS notifications, will not send.`);
+            // call the callbackURL at event.smsNotificationSettings.unsubscribeCallbackUrl
+            // with the phone number as a parameter
+            if (event.smsNotificationSettings.unsubscribeCallbackUrl) {
+                try {
+                    const response = await axios.post(event.smsNotificationSettings.unsubscribeCallbackUrl);
+                    logger.info('Unsubscribe callback successful:', response.data);
+                } catch (error) {
+                    logger.error('Error during unsubscribe callback:', error);
+                }
+            }
+            return true;
+        }
         const result = await twilioPlus.sendTextMessage(params);
     }
     catch (err) {

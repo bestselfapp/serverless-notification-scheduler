@@ -28,6 +28,7 @@ const schema = Joi.object({
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
+        unsubscribeCallbackUrl: Joi.string().allow('').optional(),
     }).optional(),
     sendTimeUtc: Joi.date().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),
