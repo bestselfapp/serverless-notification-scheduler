@@ -2,10 +2,11 @@ const AWS = require('aws-sdk');
 const S3DB = require('@dwkerwin/s3db');
 const axios = require('axios');
 const config = require('./config');
-const logger = require('./logger');
 const Joi = require('joi');
 const processSms = require('./processSms');
 const processPush = require('./processPush');
+const createLogger = require('./logger');
+let logger = createLogger();
 
 // NOTE: this needs to be updated in both scheduler and processor
 const schema = Joi.object({
@@ -31,7 +32,7 @@ const schema = Joi.object({
         phoneNumber: Joi.string().min(10).required(),
         unsubscribeCallbackUrl: Joi.string().allow('').optional(),
     }).optional(),
-    sendTimeUtc: Joi.date().required(),
+    sendTimeUtc: Joi.string().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),
     adaptiveTimingCallbackUrl: Joi.string().allow('').optional(),
 });
@@ -50,6 +51,9 @@ async function processNotification(event) {
         const notificationType = message.notificationType;
         const userId = message.uniqueProperties.userId;
         const messageId = message.uniqueProperties.messageId;
+
+        const correlationId = `${userId}-${messageId}`;
+        logger = createLogger(correlationId);
 
         logger.info(`Processing ${notificationType} notification for user ${userId}, messageId: ${messageId}`);
 

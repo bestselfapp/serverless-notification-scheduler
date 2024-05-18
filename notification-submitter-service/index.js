@@ -1,10 +1,10 @@
 const AWS = require('aws-sdk');
 const S3DB = require('@dwkerwin/s3db');
 const config = require('./config');
-const logger = require('./logger');
-const Joi = require('joi');
+const createLogger = require('./logger');
+let logger = createLogger();
 
-async function processTimeSlot(event) {
+async function process(event) {
     logger.debug('Starting notification submitter');
 
     try {
@@ -22,36 +22,23 @@ async function processTimeSlot(event) {
             eventTime = new Date();
             logger.debug(`Event time obtained from system: ${eventTime.toISOString()} UTC (${eventTime.toLocaleString("en-US", {timeZone: "America/New_York"})} EST)`);
         }
-        const timeSlot = determineTimeSlotFromEventTime(eventTime);
-        logger.trace(`Processing notifications in time slot: ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
-        const notificationsInTimeSlot = await getNotificationsInTimeSlot(timeSlot);
-        logger.info(`Processing ${notificationsInTimeSlot.length} notifications in time slot ${timeSlot}`);
 
-        let notificationsSubmitted = 0;
-        let notificationsDeleted = 0;
-        for (const notificationKey of notificationsInTimeSlot) {
-            logger.info(`Processing notification: ${notificationKey} from timeslot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
-            const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
-            const notificationObj = await s3db.get(notificationKey);
-            // post to the processor SNS topic
-            const sns = new AWS.SNS({ region: config.AWS_REGION });
-            const params = {
-                Message: JSON.stringify(notificationObj),
-                TopicArn: config.NOTIFICATION_PROCESSOR_TOPIC_ARN
-            };
-            await sns.publish(params).promise();
-            logger.debug(`Message posted to SNS topic: ${config.NOTIFICATION_PROCESSOR_TOPIC_ARN}, message: ${params.Message}`);
-
-            // if it is a one-time notification, delete it
-            if (notificationObj.scheduleType === 'one-time') {
-                logger.debug(`Deleting one-time notification: ${notificationKey}`);
-                await s3db.delete(notificationKey);
-                notificationsDeleted++;
-            }
-
-            notificationsSubmitted++;
+        let timeSlots = [];
+        // always process the 'now' time slot (will fire every minute)
+        timeSlots.push('now');
+        // if the minute is divisible by 5, process the time slot
+        if (eventTime.getMinutes() % 5 === 0) {
+            timeSlots.push(determineTimeSlotFromEventTime(eventTime));
         }
-        return { notificationsSubmitted, notificationsDeleted };
+
+        let totalSubmitted = 0, totalDeleted = 0;
+        for (const timeSlot of timeSlots) {
+            let { numSubmitted, numDeleted } = await processTimeSlot(timeSlot);
+            totalSubmitted += numSubmitted;
+            totalDeleted += numDeleted;
+        }
+        logger.info(`Total notifications submitted: ${totalSubmitted}, total notifications deleted: ${totalDeleted}`);
+        return { totalSubmitted, totalDeleted };
     }
     catch (err) {
         logger.error(`Error in notification submitter: ${err.name} - ${err.message}`);
@@ -59,6 +46,47 @@ async function processTimeSlot(event) {
         logger.error(`Event: ${JSON.stringify(event, null, 2)}`);
         throw err;
     }
+}
+
+async function processTimeSlot(timeSlot) {
+    logger.trace(`Processing notifications in time slot: ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
+    const notificationsInTimeSlot = await getNotificationsInTimeSlot(timeSlot);
+    logger.info(`Processing ${notificationsInTimeSlot.length} notifications in time slot ${timeSlot}`);
+
+    let numSubmitted = 0, numDeleted = 0;
+    for (const notificationKey of notificationsInTimeSlot) {
+        let { wasSubmitted, wasDeleted } = await processTimeSlotItem(notificationKey, timeSlot);
+        if (wasSubmitted) numSubmitted++;
+        if (wasDeleted) numDeleted++;
+    }
+    return { numSubmitted, numDeleted }
+}
+
+async function processTimeSlotItem(notificationKey, timeSlot) {
+    logger.info(`Processing notification: ${notificationKey} from timeslot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
+    let wasSubmitted = false, wasDeleted = false;
+    const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
+    const notificationObj = await s3db.get(notificationKey);
+    const correlationId = `${notificationObj.uniqueProperties.userId}-${notificationObj.uniqueProperties.messageId}`;
+    logger = createLogger(correlationId);
+    // post to the processor SNS topic
+    const sns = new AWS.SNS({ region: config.AWS_REGION });
+    const params = {
+        Message: JSON.stringify(notificationObj),
+        TopicArn: config.NOTIFICATION_PROCESSOR_TOPIC_ARN
+    };
+    await sns.publish(params).promise();
+    logger.debug(`Message posted to SNS topic: ${config.NOTIFICATION_PROCESSOR_TOPIC_ARN}, message: ${params.Message}`);
+
+    // if it is a one-time notification, delete it
+    if (notificationObj.scheduleType === 'one-time') {
+        logger.debug(`Deleting one-time notification: ${notificationKey}`);
+        await s3db.delete(notificationKey);
+        wasDeleted = true;
+    }
+
+    wasSubmitted = true;
+    return { wasSubmitted, wasDeleted };
 }
 
 async function getNotificationsInTimeSlot(timeSlot) {
@@ -125,4 +153,4 @@ function convertUtcTimeSlotStringToEst(timeSlotStr) {
     }
 }
 
-module.exports.handler = processTimeSlot;
+module.exports.handler = process;

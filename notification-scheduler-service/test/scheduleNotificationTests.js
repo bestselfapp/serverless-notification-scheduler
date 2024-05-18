@@ -1,7 +1,6 @@
 //const mochaPlugin = require('serverless-mocha-plugin');
 //const expect = mochaPlugin.chai.expect;
 const expect = require('chai').expect;
-const logger = require('../logger');
 const testHelpers = require('./testHelpers');
 const { handler } = require('../index');
 const rewire = require('rewire');
@@ -9,6 +8,8 @@ const index = rewire('../index');
 const getTimeSlotFromDateStr = index.__get__('getTimeSlotFromDateStr');
 const S3DB = require('@dwkerwin/s3db');
 const s3db = new S3DB('bsa-notifications-dev-us-east-1', 'notifications/slots');
+const createLogger = require('../logger');
+let logger = createLogger();
 
 describe('Notification Scheduler', function() {
     it('should process a valid brand new notification', async function() {

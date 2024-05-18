@@ -1,7 +1,8 @@
 const config = require('../config');
-const logger = require('../logger');
 const crypto = require('crypto');
 const S3DB = require('@bestselfapp/s3db');
+const createLogger = require('../logger');
+let logger = createLogger();
 
 const rewire = require('rewire');
 const index = rewire('../index');

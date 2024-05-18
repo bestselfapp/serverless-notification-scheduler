@@ -62,3 +62,10 @@ docker run -it \
     bestselfapp/notification-submitter:latest test
 ```
 
+OR test from local:
+
+```shell
+set -a; source env-dev.env; set +a
+sls invoke test
+```
+

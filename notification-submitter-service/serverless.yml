@@ -128,7 +128,7 @@ functions:
       - schedule:
           name: notification-submitter-event
           description: 'Trigger notification processing'
-          rate: cron(0/5 * * * ? *)
+          rate: rate(1 minute)
           enabled: true
           input:
             key1: value1

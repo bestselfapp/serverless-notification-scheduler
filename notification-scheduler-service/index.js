@@ -1,10 +1,9 @@
 const AWS = require('aws-sdk');
 const S3DB = require('@dwkerwin/s3db');
 const config = require('./config');
-const logger = require('./logger');
 const Joi = require('joi');
-const axios = require('axios');
-const crypto = require('crypto');
+const createLogger = require('./logger');
+let logger = createLogger();
 
 // NOTE: this needs to be updated in both scheduler and processor
 const schema = Joi.object({
@@ -30,7 +29,7 @@ const schema = Joi.object({
         phoneNumber: Joi.string().min(10).required(),
         unsubscribeCallbackUrl: Joi.string().allow('').optional(),
     }).optional(),
-    sendTimeUtc: Joi.date().required(),
+    sendTimeUtc: Joi.string().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),
     adaptiveTimingCallbackUrl: Joi.string().allow('').optional(),
 });
@@ -53,6 +52,8 @@ async function processNotification(event) {
         // generate a unique string from the unique properties of the notification
         //const hash = generateHash(message.uniqueProperties.message);
         const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
+        const correlationId = Uid;
+        logger = createLogger(correlationId);
 
         try {
             const sendTime = new Date(message.sendTimeUtc);
@@ -110,6 +111,10 @@ async function processNotification(event) {
 
 function getTimeSlotFromDateStr(dateStr) {
     try {
+        if (dateStr.toLowerCase() === 'now') {
+            return 'now';
+        }
+
         logger.trace(`getTimeSlotFromDateStr - Will attempt to parse time slot from input dateStr: ${dateStr}`);
         const sendTime = new Date(dateStr);
         const hours = sendTime.getUTCHours().toString().padStart(2, '0');
@@ -164,7 +169,7 @@ async function findUidTimeSlots(Uid) {
 }
 
 function timeSlotFormatValid(timeSlot) {
-    return /^\d{2}-\d{2}$/.test(timeSlot);
+    return /^\d{2}-\d{2}$/.test(timeSlot) || timeSlot.toLowerCase() === 'now';
 }
 
 async function deleteUid(timeSlot, Uid) {
