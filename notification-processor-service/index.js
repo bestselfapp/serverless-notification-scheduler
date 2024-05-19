@@ -205,12 +205,12 @@ async function canSendNotification(userId) {
         }
 
         // Check if we can send a notification
-        if (record.hourly.count >= config.MAX_NOTIFICATIONS_PER_HOUR) {
-            logger.warn(`Cannot send notification to user ${userId} because the hourly limit of ${config.MAX_NOTIFICATIONS_PER_HOUR} has been reached. ${record.hourly.count} notifications have been sent in the last hour.`);
+        if (record.hourly.count >= config.MAX_NOTIFICATIONS_PER_USER_PER_HOUR) {
+            logger.warn(`Cannot send notification to user ${userId} because the hourly limit of ${config.MAX_NOTIFICATIONS_PER_USER_PER_HOUR} has been reached. ${record.hourly.count} notifications have been sent in the last hour.`);
             return false;
         }
-        if (record.daily.count >= config.MAX_NOTIFICATIONS_PER_DAY) {
-            logger.warn(`Cannot send notification to user ${userId} because the daily limit of ${config.MAX_NOTIFICATIONS_PER_DAY} has been reached. ${record.daily.count} notifications have been sent today.`);
+        if (record.daily.count >= config.MAX_NOTIFICATIONS_PER_USER_PER_DAY) {
+            logger.warn(`Cannot send notification to user ${userId} because the daily limit of ${config.MAX_NOTIFICATIONS_PER_USER_PER_DAY} has been reached. ${record.daily.count} notifications have been sent today.`);
             return false;
         }
 

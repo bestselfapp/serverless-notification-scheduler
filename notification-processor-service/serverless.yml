@@ -119,8 +119,8 @@ functions:
       TWILIO_AUTH_TOKEN: ${ssm:/bsa/TWILIO_AUTH_TOKEN}
       TWILIO_FROM_NUMBER: ${ssm:/bsa/TWILIO_FROM_NUMBER}
       BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
-      MAX_NOTIFICATIONS_PER_HOUR: 1
-      MAX_NOTIFICATIONS_PER_DAY: 2
+      MAX_NOTIFICATIONS_PER_USER_PER_HOUR: 2
+      MAX_NOTIFICATIONS_PER_USER_PER_DAY: 3
     events:
       - sns:
           arn: ${ssm:/bsa/exports/notifications/notifications_processor_topic_arn}
