@@ -10,6 +10,9 @@ if (process.stdout.isTTY) {
     prettyStdOut.pipe(process.stdout);
 }
 
+// Define a global correlation ID
+global.correlationId = null;
+
 module.exports = function(correlationId) {
     const baseLogger = bunyan.createLogger({
         name: 'notification-processor',
@@ -21,9 +24,12 @@ module.exports = function(correlationId) {
         ]
     });
 
-    // If correlationId is undefined, assign null to it
+    // If correlationId is undefined, use the global correlation ID
     if (correlationId === undefined) {
-        correlationId = null;
+        correlationId = global.correlationId;
+    } else {
+        // If a correlation ID is provided, update the global correlation ID
+        global.correlationId = correlationId;
     }
 
     // Create a child logger that includes the correlation ID in its fields

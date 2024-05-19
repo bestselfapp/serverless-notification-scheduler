@@ -85,6 +85,9 @@ async function processTimeSlotItem(notificationKey, timeSlot) {
         wasDeleted = true;
     }
 
+    // reset the correlationId
+    logger = createLogger(null);
+
     wasSubmitted = true;
     return { wasSubmitted, wasDeleted };
 }

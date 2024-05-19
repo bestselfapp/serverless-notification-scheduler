@@ -116,6 +116,10 @@ async function processNotification(event) {
         logger.error(`Event: ${JSON.stringify(event, null, 2)}`);
         throw err;
     }
+    finally {
+        // reset the correlationId
+        logger = createLogger(null);
+    }
 };
 
 // returns a redacted version of the secret string with only the first and

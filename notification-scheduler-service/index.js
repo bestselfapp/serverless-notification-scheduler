@@ -107,6 +107,10 @@ async function processNotification(event) {
         logger.error(`Stack trace: ${err.stack}`);
         throw err;
     }
+    finally {
+        // reset the correlationId
+        logger = createLogger(null);
+    }
 };
 
 function getTimeSlotFromDateStr(dateStr) {

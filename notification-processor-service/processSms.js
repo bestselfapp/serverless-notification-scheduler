@@ -1,6 +1,7 @@
 const TwilioSmsPlus = require('twilio-sms-plus');
 const config = require('./config');
-const logger = require('./logger');
+const createLogger = require('./logger');
+let logger = createLogger();
 
 async function sendMessage(event) {
     // the message is split into parts for push notifications, combine
