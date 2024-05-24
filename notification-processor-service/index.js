@@ -26,7 +26,7 @@ const schema = Joi.object({
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
     scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('push', 'sms').required(),
+    notificationType: Joi.string().valid('push', 'sms', 'none').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
@@ -109,7 +109,6 @@ async function processNotification(event) {
         // TODO: process the message timing callback here
         // if adaptive timing returns a new time, reschedule the message by
         // calling the scheduler with the new time
-
     }
     catch (err) {
         logger.error(`Error in notification processor: ${err}\nStack trace: ${err.stack}\nEvent: ${JSON.stringify(event, null, 2)}`);
@@ -283,6 +282,25 @@ async function logMessage(logStruct) {
     }
     catch (err) {
         logger.error(`Error logging message: ${err}`);
+        throw err;
+    }
+}
+
+async function getAdaptiveMessage(messageContentCallbackUrl) {
+    try {
+        logger.debug(`Notification Processor - Adaptive message callback URL: ${messageContentCallbackUrl}`);
+        //logger.error(`config.BSA_CALLBACKS_APIKEY: ${config.BSA_CALLBACKS_APIKEY}`);
+        // call the adaptive message callback
+        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
+            headers: {
+                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
+            }
+        });
+        logger.debug(`Notification Processor - Adaptive message response: ${adaptiveMessageResponse.data}`);
+        return adaptiveMessageResponse.data;
+    }
+    catch (err) {
+        logger.error(`Notification Processor - Error in getAdaptiveMessage: ${err}`);
         throw err;
     }
 }

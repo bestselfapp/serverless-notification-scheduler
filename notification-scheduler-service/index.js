@@ -73,6 +73,7 @@ async function processNotification(event) {
             logger.error(errMsg);
             throw new Error(errMsg);
         }
+        logger.debug(`Notification Scheduler - Setting time slot to: ${timeSlot} from raw time: ${message.sendTimeUtc}`);
 
         const timeSlotMinutePart = parseInt(timeSlot.split('-')[1]);
         if (timeSlotMinutePart % 5 !== 0) {
