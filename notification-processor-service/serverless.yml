@@ -6,7 +6,7 @@ service: bsa-notification-processor-service
 provider:
   name: aws
   region: us-east-1
-  runtime: nodejs14.x
+  runtime: nodejs18.x
   deploymentBucket: bsa-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
   stage: live
   stackName: bsa-${self:service}-live
@@ -14,6 +14,24 @@ provider:
   logRetentionInDays: 14 # cloudwatch logs
   timeout: 15 # seconds
   versionFunctions: true
+  iamRoleStatements:
+  -
+    Effect: Allow
+    Action:
+      - s3:GetObject
+      - s3:PutObject
+      - s3:DeleteObject
+      - s3:ListBucket
+    Resource:
+      - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/*
+      - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
+  -
+    Effect: Allow
+    Action:
+      - sns:Publish
+    Resource:
+      - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler
+
 
 plugins:
   - serverless-mocha-plugin
@@ -95,9 +113,14 @@ functions:
     handler: index.handler
     timeout: 60 # seconds
     environment:
-      LOG_LEVEL: 'debug'
-      BSA_NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
+      LOG_LEVEL: 'trace'
+      NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
+      TWILIO_ACCOUNT_SID: ${ssm:/bsa/TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${ssm:/bsa/TWILIO_AUTH_TOKEN}
+      TWILIO_FROM_NUMBER: ${ssm:/bsa/TWILIO_FROM_NUMBER}
       BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
+      MAX_NOTIFICATIONS_PER_USER_PER_HOUR: 2
+      MAX_NOTIFICATIONS_PER_USER_PER_DAY: 3
     events:
       - sns:
           arn: ${ssm:/bsa/exports/notifications/notifications_processor_topic_arn}

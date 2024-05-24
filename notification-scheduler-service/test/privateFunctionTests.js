@@ -1,7 +1,8 @@
 const expect = require('chai').expect;
-const logger = require('../logger');
 const testHelpers = require('./testHelpers');
 const { handler } = require('../index');
+const createLogger = require('../logger');
+let logger = createLogger();
 
 const rewire = require('rewire');
 const index = rewire('../index');

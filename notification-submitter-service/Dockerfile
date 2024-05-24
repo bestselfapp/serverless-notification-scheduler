@@ -7,10 +7,7 @@ COPY package.json package-lock.json ./
 
 #RUN npm install --no-optional && npm cache clean --force
 # the above line was messing up the runtime for some reason
-ARG GITHUB_TOKEN
-RUN echo "//npm.pkg.github.com/:_authToken=$GITHUB_TOKEN" > .npmrc && \
-    npm install && \
-    rm -f .npmrc
+RUN npm install
 
 # to see why this is a multi-stage build, see:
 # https://www.alexandraulsh.com/2018/06/25/docker-npmrc-security

@@ -10,12 +10,28 @@ if (process.stdout.isTTY) {
     prettyStdOut.pipe(process.stdout);
 }
 
-module.exports = bunyan.createLogger({
-    name: 'notification-submitter',
-    streams: [
-        {
-            level: config.LOG_LEVEL,
-            stream: stream
-        }
-    ]
-});
+// Define a global correlation ID
+global.correlationId = null;
+
+module.exports = function(correlationId) {
+    const baseLogger = bunyan.createLogger({
+        name: 'notification-processor',
+        streams: [
+            {
+                level: config.LOG_LEVEL,
+                stream: stream
+            }
+        ]
+    });
+
+    // If correlationId is undefined, use the global correlation ID
+    if (correlationId === undefined) {
+        correlationId = global.correlationId;
+    } else {
+        // If a correlation ID is provided, update the global correlation ID
+        global.correlationId = correlationId;
+    }
+
+    // Create a child logger that includes the correlation ID in its fields
+    return baseLogger.child({correlationId: correlationId});
+};

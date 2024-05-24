@@ -6,7 +6,7 @@ service: bsa-notification-submitter-service
 provider:
   name: aws
   region: us-east-1
-  runtime: nodejs14.x
+  runtime: nodejs18.x
   deploymentBucket: bsa-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
   stage: live
   stackName: bsa-${self:service}-live
@@ -128,7 +128,7 @@ functions:
       - schedule:
           name: notification-submitter-event
           description: 'Trigger notification processing'
-          rate: cron(0/5 * * * ? *)
+          rate: rate(1 minute)
           enabled: true
           input:
             key1: value1

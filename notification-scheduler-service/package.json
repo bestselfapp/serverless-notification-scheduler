@@ -1,5 +1,5 @@
 {
-  "name": "bestselfapp-notification-scheduler",
+  "name": "notification-scheduler",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,12 +9,12 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@bestselfapp/personaldata-lib": "^1.2.3",
-    "@bestselfapp/s3db": "^1.0.6",
+    "@dwkerwin/s3db": "^2.0.2",
+    "axios": "^1.6.2",
     "bunyan": "^1.8.15",
     "bunyan-prettystream": "^0.1.3",
-    "google-libphonenumber": "^3.2.34",
-    "joi": "^17.11.0"
+    "joi": "^17.11.0",
+    "moment-timezone": "^0.5.45"
   },
   "devDependencies": {
     "rewire": "^7.0.0",

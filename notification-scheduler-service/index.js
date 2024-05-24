@@ -1,12 +1,12 @@
 const AWS = require('aws-sdk');
-const S3DB = require('@bestselfapp/s3db');
+const S3DB = require('@dwkerwin/s3db');
 const config = require('./config');
-const logger = require('./logger');
 const Joi = require('joi');
-const axios = require('axios');
-const crypto = require('crypto');
+const moment = require('moment-timezone');
+const createLogger = require('./logger');
+let logger = createLogger();
 
-// NOTE: this needs to be updated in both scheduler and processor
+// NOTE: unfortunately, any changes to this schema need to be reproduced in both scheduler and processor
 const schema = Joi.object({
     // Define your schema here based on the structure of the sample message
     // For example:
@@ -24,12 +24,13 @@ const schema = Joi.object({
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
     scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('push', 'sms', 'none').required(),
+    notificationType: Joi.string().valid('none', 'push', 'sms').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
+        unsubscribeCallbackUrl: Joi.string().allow('').optional(),
     }).optional(),
-    sendTimeUtc: Joi.date().required(),
+    sendTimeUtc: Joi.string().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),
     adaptiveTimingCallbackUrl: Joi.string().allow('').optional(),
 });
@@ -38,8 +39,8 @@ async function processNotification(event) {
     logger.debug('Starting notification scheduler');
 
     try {
-
         const message = JSON.parse(event.Records[0].Sns.Message);
+        logger.trace(`Processing raw event: ${JSON.stringify(message, null, 2)}`);
 
         // validate the message
         const { error } = schema.validate(message);
@@ -49,8 +50,24 @@ async function processNotification(event) {
         }
         logger.trace('Notification Scheduler - Message is valid');
 
+        // generate a unique string from the unique properties of the notification
+        const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
+        const correlationId = Uid;
+        logger = createLogger(correlationId);
+
+        try {
+            const sendTime = new Date(message.sendTimeUtc);
+            const sendTimeEstString = convertUtcDateObjectToEstString(sendTime);
+            logger.debug(`Notification Scheduler - Input dateStr from SNS message: ${message.sendTimeUtc} (${sendTimeEstString}) for Uid: ${Uid}`);
+        }
+        catch (err) {
+            logger.error(`Notification Scheduler - Error parsing dateStr: ${message.sendTimeUtc}, Error: ${err}`);
+        }
+
         // find the time slot for the notification
         let timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
+        logger.debug(`Notification Scheduler - Time slot from raw event message: ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)})`);
+
         if (!timeSlot || !timeSlotFormatValid(timeSlot)) {
             const errMsg = `Notification Scheduler - Unable to determine time slot from raw time: ${message.sendTimeUtc}`;
             logger.error(errMsg);
@@ -63,25 +80,22 @@ async function processNotification(event) {
             logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
         }
         
-        // generate a unique string from the unique properties of the notification
-        //const hash = generateHash(message.uniqueProperties.message);
-        const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
-
         // check if the unique hash exists in any time slot folder
-        const UidTimeSlot = await findUidTimeSlot(Uid);
+        const UidTimeSlots = await findUidTimeSlots(Uid);
 
         // if it does, delete the existing notification
-        if (UidTimeSlot) {
-            if (UidTimeSlot == timeSlot) {
-                logger.debug(`Notification Scheduler - Notification ${Uid} already exists in time slot ${timeSlot}, will ignore.`);
-            } else {
-                await deleteUid(UidTimeSlot, Uid);
+        if (UidTimeSlots.length > 0) {
+            for (const UidTimeSlot of UidTimeSlots) {
+                logger.trace(`Notification Scheduler - Checking existing notification in time slot: ${UidTimeSlot}`)
+                if (UidTimeSlot == timeSlot) {
+                    logger.debug(`Notification Scheduler - Notification ${Uid} already exists in target time slot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)}), will leave it there.`);
+                } else {
+                    await deleteUid(UidTimeSlot, Uid);
+                    logger.debug(`Notification Scheduler - Notification ${Uid} deleted from time slot ${UidTimeSlot} (${convertUtcTimeSlotStringToEst(UidTimeSlot)}`);
+                }
             }
-        }
-
-        if (message.notificationType == 'none') {
-            logger.info(`Notification Scheduler - Skipping saving notification (marked as 'none') for user ${message.uniqueProperties.userId}, messageId: ${message.uniqueProperties.messageId}`);
-            return;
+        } else {
+            logger.debug(`Notification Scheduler - Notification ${Uid} does not exist in any existing time slot, will add to time slot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
         }
 
         // save the notification to the time slot folder
@@ -90,19 +104,42 @@ async function processNotification(event) {
     }
     catch (err) {
         logger.error(`Error in notification scheduler: ${err}`);
+        logger.error(`Stack trace: ${err.stack}`);
         throw err;
+    }
+    finally {
+        // reset the correlationId
+        logger = createLogger(null);
     }
 };
 
+
+// takes a date string and returns a time slot. the date string can be any
+// valid date, and the function will return a time slot in 'hh-mm' format,
+// representing the hour and minute in UTC. the function also supports the
+// string 'now', which is treated as a special time slot itself.
 function getTimeSlotFromDateStr(dateStr) {
-    const sendTime = new Date(dateStr);
-    const hours = sendTime.getUTCHours().toString().padStart(2, '0');
-    const minutes = sendTime.getUTCMinutes().toString().padStart(2, '0');
-    const timeSlot = `${hours}-${minutes}`;
-    logger.trace(`Retrieved timeSlot=${timeSlot} from dateStr=${dateStr}`);
-    return timeSlot;
+    try {
+        if (dateStr.toLowerCase() === 'now') {
+            return 'now';
+        }
+
+        logger.trace(`getTimeSlotFromDateStr - Will attempt to parse time slot from input dateStr: ${dateStr}`);
+        const sendTime = new Date(dateStr);
+        const hours = sendTime.getUTCHours().toString().padStart(2, '0');
+        const minutes = sendTime.getUTCMinutes().toString().padStart(2, '0');
+        const timeSlot = `${hours}-${minutes}`;
+        return timeSlot;
+    } catch (err) {
+        logger.error(`getTimeSlotFromDateStr - Error parsing dateStr: ${dateStr}`);
+        logger.error(`getTimeSlotFromDateStr - Error: ${err}`);
+        throw err;
+    }
 }
 
+// generates a unique message ID from the user ID and message ID
+// removes special characters from the message ID
+// returns a string in the format: {userId}-{messageId}
 function generateUniqueMessageId(userId, messageId) {
     messageId = messageId.replace(/\s/g, '');
     const strippedMessageId = messageId.replace(/[^a-zA-Z0-9]/g, '');
@@ -113,18 +150,26 @@ function generateUniqueMessageId(userId, messageId) {
 }
 
 // returns the time slot folder the Uid is found in, or null if not found
-async function findUidTimeSlot(Uid) {
+// returns an array like ['hh-mm', 'hh-mm', ...]
+async function findUidTimeSlots(Uid) {
     try {
-        // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, 'notifications/slots');
-        const timeSlotFolders = await s3db.list();
-        for (const timeSlotFolder of timeSlotFolders) {
-            const UidsInTimeSlot = await s3db.list(timeSlotFolder);
-            if (UidsInTimeSlot.includes(Uid)) {
-                return timeSlotFolder;
+        const allPaths = await s3db.list();
+        logger.trace(`All paths from s3db.list(): ${allPaths}`);
+        //logger.trace(`All paths from s3db.list(): ${allPaths}`);
+        let timeSlotsWithUid = [];
+        for (const path of allPaths) {
+            if (path.includes(Uid)) {
+                logger.trace(`UID ${Uid} found in path ${path}`);
+                // Extract the time slot folder from the path
+                const timeSlotFolder = path.split('/')[0];
+                timeSlotsWithUid.push(timeSlotFolder);
+                logger.debug(`UID ${Uid} found in existing time slot ${timeSlotFolder}`);
             }
         }
-        return null;
+        // Remove duplicates from timeSlotsWithUid
+        timeSlotsWithUid = [...new Set(timeSlotsWithUid)];
+        return timeSlotsWithUid;
     }
     catch (err) {
         logger.error(`Notification Scheduler - Error in findUidinExistingTimeSlot: ${err}`);
@@ -133,14 +178,17 @@ async function findUidTimeSlot(Uid) {
 }
 
 function timeSlotFormatValid(timeSlot) {
-    return /^\d{2}-\d{2}$/.test(timeSlot);
+    return /^\d{2}-\d{2}$/.test(timeSlot) || timeSlot.toLowerCase() === 'now';
 }
 
 async function deleteUid(timeSlot, Uid) {
     try {
-        // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
-        logger.debug(`Notification Scheduler - Deleting existing notification in time slot: ${timeSlot}`);
+        logger.trace(`deleteUid: timeSlot=${timeSlot}, Uid=${Uid}`)
+        // s3 structure: s3://bucketname/notifications/slots/{hh-mm}/{notificationUid}.json
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
+        if (!s3db.exists(Uid)) {
+            logger.warn(`Notification Scheduler - Wants to delete a notification that can not be found at s3://${config.NOTIFICATION_BUCKET}/notifications/slots/${timeSlot}/${Uid}.json`);
+        }
         await s3db.delete(Uid);
         logger.info(`Notification Scheduler - Deleted existing notification ${Uid} in time slot ${timeSlot}`);
     }
@@ -152,10 +200,10 @@ async function deleteUid(timeSlot, Uid) {
 
 async function saveNotification(timeSlot, Uid, message) {
     try {
-        // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
-        logger.debug(`Notification Scheduler - Saving notification to time slot: ${timeSlot}`);
+        // s3 structure: s3://bucketname/notifications/slots/{hh-mm}/{notificationUid}.json
+        logger.trace(`Notification Scheduler - Saving notification to time slot: ${timeSlot}`);
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
-        await s3db.put(`${Uid}.json`, message);
+        await s3db.put(Uid, message);
         logger.info(`Notification Scheduler - Saved notification ${Uid} to time slot ${timeSlot}`);
     }
     catch (err) {
@@ -164,18 +212,31 @@ async function saveNotification(timeSlot, Uid, message) {
     }
 }
 
-// async function getAdaptiveTime(adaptiveTimingCallbackUrl) {
-//     try {
-//         logger.debug(`Notification Scheduler - Adaptive timing callback URL: ${adaptiveTimingCallbackUrl}`);
-//         // call the adaptive timing callback
-//         const adaptiveTimingResponse = await axios.get(adaptiveTimingCallbackUrl);
-//         logger.debug(`Notification Scheduler - Adaptive timing response: ${adaptiveTimingResponse.data}`);
-//         return adaptiveTimingResponse.data;
-//     }
-//     catch (err) {
-//         logger.error(`Notification Scheduler - Error in getAdaptiveTime: ${err}`);
-//         throw err;
-//     }
-// }
+// This function formats UTC date to EST string for log readability. It
+// doesn't convert the actual date.
+function convertUtcDateObjectToEstString(utcDate) {
+    const hours = utcDate.getUTCHours();
+    const minutes = utcDate.getUTCMinutes();
+    const seconds = utcDate.getUTCSeconds();
+    const date = new Date();
+    date.setUTCHours(hours, minutes, seconds || 0);
+    const estTimeString = date.toLocaleString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true });
+    return estTimeString;
+}
+
+// takes a time slot string in the format "HH-MM" and returns a string in
+// the format "hh:mm A EST", again just for log readability
+function convertUtcTimeSlotStringToEst(timeSlotStr) {
+    try {
+        const [hours, minutes] = timeSlotStr.split('-').map(Number);
+        const utcMoment = moment.utc().set({ hour: hours, minute: minutes, second: 0 });
+        const estTimeString = utcMoment.tz('America/New_York').format('hh:mm A');
+
+        return estTimeString + ' EST';
+    } catch (err) {
+        console.error(`Error in convertUtcTimeSlotStringToEst: ${err}`);
+        throw err;
+    }
+}
 
 module.exports.handler = processNotification
