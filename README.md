@@ -1,6 +1,6 @@
 # Serverless Notification Scheduler
 
-A lightweight, cost-effective solution for scheduling and sending SMS and push notifications via AWS. It leverages Twilio as the backend service for sending SMS messages. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for using this service, even at some scale should be approximately $0.05 per month, lol.**  Twilio SMS charges are another story.
+A lightweight, cost-effective solution for scheduling and sending SMS and mobile push notifications via AWS. It leverages Twilio as the backend service for sending SMS messages. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for using this service, even at some scale should be approximately $0.05 per month, lol.**  Twilio SMS charges are another story.
 
 There are 3 microservices within this repo which make up this service, which are [described below](#understanding-the-microservices).
 
@@ -115,7 +115,7 @@ In this section, we delve into the functionality of each of the three microservi
 
 ### Notification Scheduler Service (SNS -> Lambda)
 
-The Notification Scheduler Service serves as the primary point of interaction with the system. It is responsible for receiving and processing notification configuration requests. These requests are handled idempotently, meaning you can send the same request multiple times without creating duplicate notifications.
+The [Notification Scheduler Service](notification-scheduler-service/README.md) serves as the primary point of interaction with the system. It is responsible for receiving and processing notification configuration requests. These requests are handled idempotently, meaning you can send the same request multiple times without creating duplicate notifications.
 
 Upon receiving a request, the service stores the notification configuration in an S3 bucket. The path structure indicates the time slot for when the notification is intended to be sent. The time slot is represented in "hh-mm" format (UTC), corresponding to the hour and minute the user wants the notification to be sent.
 
@@ -123,7 +123,7 @@ The service ensures that each notification, identified by a unique UID, exists o
 
 ### Notification Submitter Service (EventBridge cron every minute -> Lambda)
 
-The Notification Submitter Service is a Lambda function that runs every minute, triggered by an EventBridge cron job. It scans the S3 bucket for notifications scheduled for the current time slot and sends them for processing by posting them to an SNS topic, which triggers another Lambda function.
+The [Notification Submitter Service](notification-submitter-service/README.md) is a Lambda function that runs every minute, triggered by an EventBridge cron job. It scans the S3 bucket for notifications scheduled for the current time slot and sends them for processing by posting them to an SNS topic, which triggers another Lambda function.
 
 There are two types of notifications this service handles:
 
@@ -133,8 +133,12 @@ There are two types of notifications this service handles:
 
 After a one-time notification has been processed, the service deletes the corresponding file from the S3 bucket to prevent it from being sent again.
 
-## Notification Processor Service (SNS -> Lambda)
+### Notification Processor Service (SNS -> Lambda)
 
-Receives the SNS messages from the Submitter Service and immediately sends the actual notification via Twilio, iOS, or Android.
+The [Notification Processor Service](notification-processor-service/README.md) receives the SNS messages from the Submitter Service and immediately sends the actual notification via Twilio, iOS, or Android.
 
 The service maintains a comprehensive log of all messages sent to the user, appending each entry to a file in an S3 bucket. This log includes the `notificationType` (SMS or push), the content of the message, and the timestamp of when the message was sent.
+
+## Deployment
+
+Each of the three microservices mentioned above are independently deployable. The README file inside each microservice's directory within this repo, provides detailed instructions on how to deploy them.
