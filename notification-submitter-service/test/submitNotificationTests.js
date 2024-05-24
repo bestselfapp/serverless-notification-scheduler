@@ -49,7 +49,7 @@ describe('Notification Submitter', function() {
                     }
                 },
                 "smsNotificationSettings": {
-                    "phoneNumber": "6092734392"
+                    "phoneNumber": "6095551212"
                 },
                 "sendTimeUtc": "2024-01-01T12:50:00.000Z",
                 "enableAdaptiveTiming": false,
@@ -103,7 +103,7 @@ describe('Notification Submitter', function() {
                     }
                 },
                 "smsNotificationSettings": {
-                    "phoneNumber": "6092734392"
+                    "phoneNumber": "6095551212"
                 },
                 "sendTimeUtc": "2024-01-01T12:55:00.000Z",
                 "enableAdaptiveTiming": false,
@@ -157,7 +157,7 @@ describe('Notification Submitter', function() {
                     }
                 },
                 "smsNotificationSettings": {
-                    "phoneNumber": "6092734392"
+                    "phoneNumber": "6095551212"
                 },
                 "sendTimeUtc": "now",
                 "enableAdaptiveTiming": false,

@@ -8,7 +8,7 @@ const processPush = require('./processPush');
 const createLogger = require('./logger');
 let logger = createLogger();
 
-// NOTE: this needs to be updated in both scheduler and processor
+// NOTE: unfortunately, any changes to this schema need to be reproduced in both scheduler and processor
 const schema = Joi.object({
     // Define your schema here based on the structure of the sample message
     // For example:

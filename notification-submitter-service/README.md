@@ -1,22 +1,19 @@
-# Notification Processor Service (EventBridge cron every 5 mins -> Lambda)
+# Notification Submitter Service (EventBridge cron every minute -> Lambda)
 
-A NotificaitonSubmitter lambda runs on a cron every five minutes, finds all notifications in the s3 structure specified under the current timeslot it is processing, and sends them for Notification Processing by posting them to SNS->Lambda. (similar to the batch-analysis-submitter)
+A NotificationSubmitter Lambda function runs on a cron every minute. It finds all notifications in the S3 structure specified under the current timeslot it is processing and sends them for Notification Processing by posting them to SNS->Lambda. 
+
+There are two types of notifications this service handles:
+
+- Notifications with `sendTimeUtc` set to `now`: These notifications are processed every minute when the cron job runs.
+
+- Notifications with `sendTimeUtc` set to a specific date and time: These notifications are processed only at five-minute intervals that are evenly divisible by 5 (e.g., 00:05, 00:10, 00:15, etc.).
 
 If the message is one-time, this service will delete the message from the time slot in S3.
 
 ## Build
 
-The build requires the Github Token so it has access to pull the private npm repos from Github Packages.  This token is passed into the docker build via the `--build-arg GITHUB_TOKEN` below.  This token is generated in Github via [this guide](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-to-github-packages) (when generating for the first time).  If you already have your token it will be in your `~/npmrc` file, see:
-
-```
-# //npm.pkg.github.com/:_authToken=(this is where GITHUB_TOKEN should be)
-```
-
 ```shell
-# assuming the first line of your ~/.npmrc is used for npm.pkg.github.com,
-# this will work to grab it:
-export GITHUB_TOKEN=$(head -1 ~/.npmrc | cut -d= -f 2)
-docker build --build-arg GITHUB_TOKEN -t bestselfapp/notification-submitter:latest .
+docker build -t notification-submitter:latest .
 ```
 
 Not working?  Try `npm i` locally first. ¯\_(ツ)_/¯
@@ -31,7 +28,7 @@ docker run -it \
     -v $(pwd):/opt/node_app/app \
     -v ~/.aws/:/root/.aws/ \
     -e AWS_ENV -e AWS_PROFILE=$PROFILE \
-    bestselfapp/notification-submitter:latest slsdeploy
+    notification-submitter:latest slsdeploy
 ```
 
 ## Run Locally Via Sls
@@ -46,7 +43,7 @@ docker run -it -p 80:8080 \
     -v ~/.aws/:/root/.aws/ \
     -e AWS_ENV -e AWS_PROFILE=$PROFILE -e EVENTPATH \
     --env-file env-dev.env \
-    bestselfapp/notification-submitter:latest slsinvokelocal
+    notification-submitter:latest slsinvokelocal
 ```
 
 ## Test
@@ -59,7 +56,7 @@ docker run -it \
     -v ~/.aws/:/root/.aws/ \
     -e AWS_ENV -e AWS_PROFILE \
     --env-file env-dev.env \
-    bestselfapp/notification-submitter:latest test
+    notification-submitter:latest test
 ```
 
 OR test from local:

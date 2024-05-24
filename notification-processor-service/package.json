@@ -1,5 +1,5 @@
 {
-  "name": "bestselfapp-notification-processor",
+  "name": "notification-processor",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,7 +9,6 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@bestselfapp/personaldata-lib": "^1.2.3",
     "@dwkerwin/s3db": "^2.0.2",
     "axios": "^1.6.2",
     "bunyan": "^1.8.15",

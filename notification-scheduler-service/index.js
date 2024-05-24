@@ -5,7 +5,7 @@ const Joi = require('joi');
 const createLogger = require('./logger');
 let logger = createLogger();
 
-// NOTE: this needs to be updated in both scheduler and processor
+// NOTE: unfortunately, any changes to this schema need to be reproduced in both scheduler and processor
 const schema = Joi.object({
     // Define your schema here based on the structure of the sample message
     // For example:
@@ -208,7 +208,7 @@ async function saveNotification(timeSlot, Uid, message) {
     }
 }
 
-// this function seems to be correctly returning the time in EST (not off my 1 hour)
+// This function formats UTC date to EST string for log readability. It doesn't convert the actual date.
 function convertUtcDateObjectToEstString(utcDate) {
     const hours = utcDate.getUTCHours();
     const minutes = utcDate.getUTCMinutes();
@@ -220,7 +220,7 @@ function convertUtcDateObjectToEstString(utcDate) {
 }
 
 const moment = require('moment-timezone');
-// takes a time slot string in the format "HH-MM" and returns a string in the format "hh:mm A EST"
+// takes a time slot string in the format "HH-MM" and returns a string in the format "hh:mm A EST", again just for log readability
 function convertUtcTimeSlotStringToEst(timeSlotStr) {
     try {
         // Split the time string into hours and minutes
