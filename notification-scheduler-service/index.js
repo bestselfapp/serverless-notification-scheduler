@@ -2,6 +2,7 @@ const AWS = require('aws-sdk');
 const S3DB = require('@dwkerwin/s3db');
 const config = require('./config');
 const Joi = require('joi');
+const moment = require('moment-timezone');
 const createLogger = require('./logger');
 let logger = createLogger();
 
@@ -50,7 +51,6 @@ async function processNotification(event) {
         logger.trace('Notification Scheduler - Message is valid');
 
         // generate a unique string from the unique properties of the notification
-        //const hash = generateHash(message.uniqueProperties.message);
         const Uid = generateUniqueMessageId(message.uniqueProperties.userId, message.uniqueProperties.messageId);
         const correlationId = Uid;
         logger = createLogger(correlationId);
@@ -61,8 +61,7 @@ async function processNotification(event) {
             logger.debug(`Notification Scheduler - Input dateStr from SNS message: ${message.sendTimeUtc} (${sendTimeEstString}) for Uid: ${Uid}`);
         }
         catch (err) {
-            logger.error(`Notification Scheduler - Error parsing dateStr: ${message.sendTimeUtc}`);
-            logger.error(`Notification Scheduler - Error: ${err}`);
+            logger.error(`Notification Scheduler - Error parsing dateStr: ${message.sendTimeUtc}, Error: ${err}`);
         }
 
         // find the time slot for the notification
@@ -113,6 +112,11 @@ async function processNotification(event) {
     }
 };
 
+
+// takes a date string and returns a time slot. the date string can be any
+// valid date, and the function will return a time slot in 'hh-mm' format,
+// representing the hour and minute in UTC. the function also supports the
+// string 'now', which is treated as a special time slot itself.
 function getTimeSlotFromDateStr(dateStr) {
     try {
         if (dateStr.toLowerCase() === 'now') {
@@ -179,8 +183,7 @@ function timeSlotFormatValid(timeSlot) {
 async function deleteUid(timeSlot, Uid) {
     try {
         logger.trace(`deleteUid: timeSlot=${timeSlot}, Uid=${Uid}`)
-        // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
-        //logger.trace(`Notification Scheduler - Deleting existing notification in time slot: ${timeSlot}`);
+        // s3 structure: s3://bucketname/notifications/slots/{hh-mm}/{notificationUid}.json
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
         if (!s3db.exists(Uid)) {
             logger.warn(`Notification Scheduler - Wants to delete a notification that can not be found at s3://${config.NOTIFICATION_BUCKET}/notifications/slots/${timeSlot}/${Uid}.json`);
@@ -196,7 +199,7 @@ async function deleteUid(timeSlot, Uid) {
 
 async function saveNotification(timeSlot, Uid, message) {
     try {
-        // s3 structure: s3://bsa-pdata-dev-us-east-1/notifications/slots/{hh-mm}/{notificationUid}.json
+        // s3 structure: s3://bucketname/notifications/slots/{hh-mm}/{notificationUid}.json
         logger.trace(`Notification Scheduler - Saving notification to time slot: ${timeSlot}`);
         const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
         await s3db.put(Uid, message);
@@ -208,7 +211,8 @@ async function saveNotification(timeSlot, Uid, message) {
     }
 }
 
-// This function formats UTC date to EST string for log readability. It doesn't convert the actual date.
+// This function formats UTC date to EST string for log readability. It
+// doesn't convert the actual date.
 function convertUtcDateObjectToEstString(utcDate) {
     const hours = utcDate.getUTCHours();
     const minutes = utcDate.getUTCMinutes();
@@ -219,17 +223,12 @@ function convertUtcDateObjectToEstString(utcDate) {
     return estTimeString;
 }
 
-const moment = require('moment-timezone');
-// takes a time slot string in the format "HH-MM" and returns a string in the format "hh:mm A EST", again just for log readability
+// takes a time slot string in the format "HH-MM" and returns a string in
+// the format "hh:mm A EST", again just for log readability
 function convertUtcTimeSlotStringToEst(timeSlotStr) {
     try {
-        // Split the time string into hours and minutes
         const [hours, minutes] = timeSlotStr.split('-').map(Number);
-
-        // Create a moment object for the current date and specified time in UTC
         const utcMoment = moment.utc().set({ hour: hours, minute: minutes, second: 0 });
-
-        // Convert the moment object to the local time string in EST
         const estTimeString = utcMoment.tz('America/New_York').format('hh:mm A');
 
         return estTimeString + ' EST';

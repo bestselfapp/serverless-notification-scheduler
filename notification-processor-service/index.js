@@ -71,7 +71,8 @@ async function processNotification(event) {
             return;
         }
 
-        // if adaptive message
+        // if adaptive message, try the callback URL and if a message is returned,
+        // use that message instead of the original message
         if (message.message.messageContentCallbackUrl) {
             const adaptiveMessageResponse = await getAdaptiveMessage(message.message.messageContentCallbackUrl);            
             if (adaptiveMessageResponse) {
@@ -111,9 +112,7 @@ async function processNotification(event) {
 
     }
     catch (err) {
-        logger.error(`Error in notification processor: ${err}`);
-        logger.error(`Stack trace: ${err.stack}`);
-        logger.error(`Event: ${JSON.stringify(event, null, 2)}`);
+        logger.error(`Error in notification processor: ${err}\nStack trace: ${err.stack}\nEvent: ${JSON.stringify(event, null, 2)}`);
         throw err;
     }
     finally {
@@ -171,6 +170,9 @@ async function getAdaptiveMessage(messageContentCallbackUrl) {
     }
 }
 
+// This is a safeguard to prevent the system from overloading a user with
+// notifications. It ensures that the number of notifications sent to a user
+// does not exceed the maximum limits set per hour and per day. 
 async function canSendNotification(userId) {
     try {
         logger.debug(`Checking notification usage vs limits for user ${userId}`)

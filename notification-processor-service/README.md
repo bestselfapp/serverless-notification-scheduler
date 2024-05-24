@@ -10,6 +10,8 @@ The service maintains a comprehensive log of all messages sent to the user, appe
 docker build -t notification-processor:latest .
 ```
 
+Not working?  Try `npm i` locally first. ¯\_(ツ)_/¯
+
 ## Deploy
 
 Relies on local ~/.aws/ credentials, see the README in the infrastructure repo for the list of required profiles.
@@ -22,8 +24,6 @@ docker run -it \
     -e AWS_ENV -e AWS_PROFILE=$PROFILE \
     notification-processor:latest slsdeploy
 ```
-
-Not working?  Try `npm i` locally first. ¯\_(ツ)_/¯
 
 ## Run Locally Via Sls
 

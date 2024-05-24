@@ -1,18 +1,18 @@
 # Serverless Notification Scheduler
 
-A lightweight, cost-effective solution for scheduling and sending SMS and push notifications via AWS. It leverages Twilio as the backend service for sending SMS messages. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, with the latter easily configured through a single idempotent JSON request. The system supports dynamic, custom messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  Your AWS bill for using this service, even at some scale should be approximately $0.05 per month, lol.  Twilio SMS charges are another story.
+A lightweight, cost-effective solution for scheduling and sending SMS and push notifications via AWS. It leverages Twilio as the backend service for sending SMS messages. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for using this service, even at some scale should be approximately $0.05 per month, lol.**  Twilio SMS charges are another story.
 
 There are 3 microservices within this repo which make up this service, which are [described below](#understanding-the-microservices).
 
 ## Origins and Open-Sourcing
 
-This functionality was originally developed as part of a larger project, BestSelfApp, a mobile application in the wellness and personal development space. The app required a feature to send daily reminder notifications to users, prompting them to complete their daily data entry, supporting either push notifications or SMS.  The notification functionality was built in a way that was not directly connected to the BestSelfApp, making it versatile enough to be used by any application that needs to send recurring or scheduled notifications. Recognizing its potential for broader use, I decided to open source it.
+This functionality was originally developed for [BestSelfApp](https://www.bestselfapp.xyz/), a mobile application in the wellness and personal development space, which sends daily reminder notifications to users. Built independently from the main app, it can be adapted by any application requiring scheduled or recurring notifications. As such, it was open-sourced to benefit a wider range of projects.
 
 Please note that while the functionality is ready for use, it isn't completely tailored for open source. There are some variable names and S3 bucket names that include 'BSA' (for BestSelfApp) in the serverless.yml files. If you wish to use this functionality, you would need to provide new bucket names in the serverless.yml files. Aside from these minor changes, the functionality should be easy to use.
 
-## Example Request
+## Sample Request
 
-Below is a sample JSON request that can be dispatched to the SNS topic, triggering the Notification Services to process the request.  This is the only interface to this service.  All the settings to create, modify, and remove a recurring or time specified notification are managed by posting an SNS request in this JSON format.
+The following JSON request serves as an example of how to interact with the Notification Services. By dispatching this request to the SNS topic, the service processes the notification settings. This is the sole interface for this service. All operations, including creating, modifying, and removing recurring or time-specified notifications, are managed through SNS requests in this JSON format.
 
 ```json
 {
@@ -107,7 +107,7 @@ These are the paths that must exist in your AWS account's Systems Manager Parame
 
 - `/bsa/TWILIO_FROM_NUMBER`: This is the phone number from which SMS messages will be sent. This number must be a valid Twilio phone number associated with your account.
 
-- `/bsa/secrets/callbacks_apikey`: This is the API key that will be sent in the header of any requests made to the callback URLs specified in your JSON requests. This allows the system to authenticate itself when requesting dynamic content for your notifications.
+- `/bsa/secrets/callbacks_apikey`: This is the API key that will be sent in the header of any requests made to the callback URLs specified in your JSON requests. This key is used to authenticate the system when requesting dynamic content for your notifications. It assumes that the callback URLs provided in your application are protected routes secured by this API key, preventing unauthorized access.
 
 ## Understanding the Microservices
 

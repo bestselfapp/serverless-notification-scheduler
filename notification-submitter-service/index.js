@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk');
 const S3DB = require('@dwkerwin/s3db');
 const config = require('./config');
+const moment = require('moment-timezone');
 const createLogger = require('./logger');
 let logger = createLogger();
 
@@ -9,10 +10,10 @@ async function process(event) {
 
     try {
         logger.trace(`Processing raw event: ${JSON.stringify(event, null, 2)}`);
-        // there isn't any "time" property of the event, there isn't any useful
-        // information in the event, but our testing code relies on it
-        // so try to use this property and if it isn't found, default to the
-        // current time
+        // there isn't any "time" property of the event, the event is just the
+        // cron without any useful information in the event, but our testing code
+        // relies on it, so try to use this property and if it isn't found,
+        // default to the current time
         let eventTime;
         try {
             eventTime = new Date(event.time);
@@ -24,9 +25,11 @@ async function process(event) {
         }
 
         let timeSlots = [];
-        // always process the 'now' time slot (will fire every minute)
+        // always process the 'now' time slot (every minute)
         timeSlots.push('now');
-        // if the minute is divisible by 5, process the time slot
+        // if the time slot is not now, it's a scheduled notification, which
+        // we support in 5 minute intervals, so if the minute is divisible
+        // by 5, also process the time slot
         if (eventTime.getMinutes() % 5 === 0) {
             timeSlots.push(determineTimeSlotFromEventTime(eventTime));
         }
@@ -41,9 +44,7 @@ async function process(event) {
         return { totalSubmitted, totalDeleted };
     }
     catch (err) {
-        logger.error(`Error in notification submitter: ${err.name} - ${err.message}`);
-        logger.error(`Stack trace: ${err.stack}`);
-        logger.error(`Event: ${JSON.stringify(event, null, 2)}`);
+        logger.error(`Error in notification submitter: ${err.name} - ${err.message}\nStack trace: ${err.stack}\nEvent: ${JSON.stringify(event, null, 2)}`);
         throw err;
     }
 }
@@ -69,6 +70,7 @@ async function processTimeSlotItem(notificationKey, timeSlot) {
     const notificationObj = await s3db.get(notificationKey);
     const correlationId = `${notificationObj.uniqueProperties.userId}-${notificationObj.uniqueProperties.messageId}`;
     logger = createLogger(correlationId);
+
     // post to the processor SNS topic
     const sns = new AWS.SNS({ region: config.AWS_REGION });
     const params = {
@@ -85,7 +87,8 @@ async function processTimeSlotItem(notificationKey, timeSlot) {
         wasDeleted = true;
     }
 
-    // reset the correlationId
+    // reset the correlationId, anything done after this point will not be
+    // associated with the current correlationId
     logger = createLogger(null);
 
     wasSubmitted = true;
@@ -136,17 +139,12 @@ function roundTimeSlotToNearest(timeSlot, minuteParts) {
     return timeSlotRounded;
 }
 
-const moment = require('moment-timezone');
-// takes a time slot string in the format "HH-MM" and returns a string in the format "hh:mm A EST"
+// takes a time slot string in the format "HH-MM" and returns a string in
+// the format "hh:mm A EST", for log readability only
 function convertUtcTimeSlotStringToEst(timeSlotStr) {
     try {
-        // Split the time string into hours and minutes
         const [hours, minutes] = timeSlotStr.split('-').map(Number);
-
-        // Create a moment object for the current date and specified time in UTC
         const utcMoment = moment.utc().set({ hour: hours, minute: minutes, second: 0 });
-
-        // Convert the moment object to the local time string in EST
         const estTimeString = utcMoment.tz('America/New_York').format('hh:mm A');
 
         return estTimeString + ' EST';
