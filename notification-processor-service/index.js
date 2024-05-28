@@ -5,6 +5,7 @@ const config = require('./config');
 const Joi = require('joi');
 const processSms = require('./processSms');
 const processPush = require('./processPush');
+const processEmail = require('./processEmail');
 const createLogger = require('./logger');
 let logger = createLogger();
 
@@ -19,18 +20,29 @@ const schema = Joi.object({
         // e.g. 'dailyReminder' or 'earlyMorningPredictionWarning'
         messageId: Joi.string().min(5).required()
     }).required(),
+    scheduleType: Joi.string().valid('one-time', 'recurring').required(),
+    notificationType: Joi.string().valid('none', 'push', 'sms', 'email').required(),
     message: Joi.object({
         title: Joi.string().required(),
         subtitle: Joi.string().allow('').optional(),
-        body: Joi.string().required(),
+        body: Joi.any()
+            .when('notificationType', {
+                is: 'email',
+                then: Joi.string().pattern(/^s3:\/\/.*/).required(),
+                otherwise: Joi.string().required()
+            }),
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
-    scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('push', 'sms', 'none').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
         unsubscribeCallbackUrl: Joi.string().allow('').optional(),
+    }).optional(),
+    emailNotificationSettings: Joi.object({
+        emailType: Joi.string().valid('text', 'html').default('html').optional(),
+        toEmailAddress: Joi.string().email().required(),
+        fromEmailAddress: Joi.string().email().required(),
+        unsubscribeUrl: Joi.string().uri().allow('').optional(),
     }).optional(),
     sendTimeUtc: Joi.string().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),
@@ -86,6 +98,8 @@ async function processNotification(event) {
             await processPush(message);
         } else if (notificationType == 'sms') {
             await processSms(message);
+        } else if (notificationType == 'email') {
+            await processEmail(message);
         } else {
             const errMsg = `Invalid notification type: ${notificationType} for user ${userId}, messageId: ${messageId}`;
             logger.error(errMsg);

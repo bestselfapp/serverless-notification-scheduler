@@ -12,14 +12,14 @@ The payload to the SNS topic for this service to schedule a notification is in t
         "userId": "12345",
         "messageId": "dailyReminder"
     },
+    "scheduleType": "recurring",
+    "notificationType": "sms",
     "message": {
         "title": "BestSelfApp",
         "subtitle": "",
         "body": "Enter today's data!",
         "messageContentCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
     },
-    "scheduleType": "recurring",
-    "notificationType": "sms",
     "pushNotificationSettings": {
         "appleSettings": {
             "deviceToken": "deviceTokenHere",
@@ -27,13 +27,19 @@ The payload to the SNS topic for this service to schedule a notification is in t
         }
     },
     "smsNotificationSettings": {
-        "phoneNumber": "6092734392"
+        "phoneNumber": "6092734392",
+        "unsubscribeCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/unsubscribe/12345"
+    },
+    "emailNotificationSettings": {
+        "emailType": "html",
+        "toEmailAddress": "user@example.com",
+        "fromEmailAddress": "noreply@bestselfapp.xyz",
+        "unsubscribeUrl": "https://www.bestselfapp.xyz/unsubscribe/12345"
     },
     "sendTimeUtc": "2024-01-02T02:00:00Z",
     "enableAdaptiveTiming": true,
     "adaptiveTimingCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/adaptiveTiming/12345"
 }
-```
 
 ## Build
 

@@ -25,12 +25,24 @@ provider:
     Resource:
       - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/*
       - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
+      - arn:aws:s3:::bsa-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}/*
+      - arn:aws:s3:::bsa-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}
   -
     Effect: Allow
     Action:
       - sns:Publish
     Resource:
       - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler
+  -
+    Effect: Allow
+    Action:
+      - ses:SendEmail
+      - ses:SendRawEmail
+      - ses:VerifyEmailIdentity
+      - ses:VerifyDomainIdentity
+      - ses:GetSendStatistics
+      - ses:GetSendQuota
+    Resource: "*"
 
 
 plugins:
@@ -59,6 +71,26 @@ resources:
         Subscription:
           - Protocol: email
             Endpoint: ops+${env:AWS_ENV, 'dev'}@bestselfapp.xyz
+
+    EmailContentsBucket:
+      Type: 'AWS::S3::Bucket'
+      Properties:
+        BucketName: bsa-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}
+        AccessControl: Private
+        LifecycleConfiguration:
+          Rules:
+            - Id: ExpireContentsAfterOneYear
+              Status: Enabled
+              ExpirationInDays: 365
+
+    EmailContentsBucketParameter:
+      Type: 'AWS::SSM::Parameter'
+      Properties:
+        Name: '/bsa/exports/notificaitons/email-contents-bucket'
+        Type: 'String'
+        Value: 'bsa-email-contents-${self:provider.region}'
+        Description: 'S3 bucket for email contents, other services can write to this, Notification Scheduler Service will read'
+        Tier: 'Standard'
 
     LambdaNoInvocationTopic:
       Type: 'AWS::SNS::Topic'
@@ -115,6 +147,7 @@ functions:
     environment:
       LOG_LEVEL: 'trace'
       NOTIFICATION_BUCKET: ${ssm:/bsa/exports/notifications/notifications_bucket}
+      EMAIL_CONTENTS_BUCKET: bsa-email-contents-${self:provider.region}
       TWILIO_ACCOUNT_SID: ${ssm:/bsa/TWILIO_ACCOUNT_SID}
       TWILIO_AUTH_TOKEN: ${ssm:/bsa/TWILIO_AUTH_TOKEN}
       TWILIO_FROM_NUMBER: ${ssm:/bsa/TWILIO_FROM_NUMBER}
