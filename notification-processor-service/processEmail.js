@@ -54,17 +54,19 @@ async function sendMessage(event) {
             const fullKey = path.join(parsedPath,item);
             logger.trace(`Adding ${fullKey} as an attachment`);
 
-            logger.info(`Comparing ${fullKey} to ${path.join(parsedPath,'index.html')}`);   
             if (fullKey === path.join(parsedPath,'index.html')) {
                 // If the blob is 'index.html', use its content as the email body
                 emailContent = blob.toString('utf-8');
             } else {
-                // Otherwise, convert the file data to a base64 string and add it to the attachments
+                // Convert the blob to a base64 string
                 const base64Data =  blob.toString('base64');
+
+                // Add the base64 string to the attachments array
                 attachments.push({
-                    filename: fullKey,
+                    filename: item,
                     content: base64Data,
-                    encoding: 'base64'
+                    encoding: 'base64',
+                    cid: item
                 });
             }
         }
@@ -84,7 +86,8 @@ async function sendMessage(event) {
             attachments: attachments.map(attachment => ({
                 filename: attachment.filename,
                 content: Buffer.from(attachment.content, 'base64'),
-                encoding: 'base64'
+                encoding: 'base64',
+                cid: attachment.cid
             }))
         };
         
@@ -94,13 +97,13 @@ async function sendMessage(event) {
                     logger.error(`Error sending Email to ${event.emailNotificationSettings.toEmailAddress}: ${error}`);
                     reject(error);
                 } else {
-                    logger.info(`Info object: ${JSON.stringify(info)}`);
-                    if (!info || !info.messageId) {  // Changed 'MessageId' to 'messageId'
+                    logger.debug(`Info object: ${JSON.stringify(info)}`);
+                    if (!info || !info.messageId) {
                         const errMsg = `No messageId returned when sending Email to ${event.emailNotificationSettings.toEmailAddress}`;
                         logger.error(errMsg);
                         reject(new Error(errMsg));
                     } else {
-                        logger.info(`Email sent: ${info.messageId}`);  // Changed 'MessageId' to 'messageId'
+                        logger.info(`Email sent: ${info.messageId}`);
                         resolve();
                     }
                 }

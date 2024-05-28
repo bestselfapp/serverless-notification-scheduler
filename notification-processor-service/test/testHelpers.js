@@ -1,6 +1,7 @@
 const config = require('../config');
 const crypto = require('crypto');
 const S3DB = require('@dwkerwin/s3db');
+const Jimp = require('jimp');
 const createLogger = require('../logger');
 let logger = createLogger();
 
@@ -40,4 +41,34 @@ module.exports.wrapEventBodyInSnsPayload = function(eventBody) {
 
 module.exports.generateNewUniqueUserId = function () {
     return 'TEST' + crypto.randomBytes(12).toString('hex');
+}
+
+module.exports.downloadImage = async function(url) {
+    const image = await Jimp.read(url);
+    const buffer = await image.getBufferAsync(Jimp.AUTO);
+    return buffer;
+}
+
+// Downloads a test image. Tries URLs in order until successful.
+// Returns image data as a Buffer. Throws error if all URLs fail.
+module.exports.downloadTestImage = async function() {
+    const urls = [
+        'https://placekitten.com/200/300',
+        'https://picsum.photos/id/237/200/300',
+        'https://via.placeholder.com/150',
+        'https://source.unsplash.com/WLUHO9A_xik/1600x900'
+        // Add more URLs here
+    ];
+
+    for (const url of urls) {
+        try {
+            const buffer = await this.downloadImage(url);
+            return buffer;
+        } catch (error) {
+            console.error(`Failed to download image from ${url}: ${error}`);
+            // If there's an error, continue to the next URL
+        }
+    }
+
+    throw new Error('Failed to download image from any URL');
 }
