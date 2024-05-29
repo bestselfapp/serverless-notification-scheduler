@@ -92,3 +92,9 @@ docker run -it \
     notification-scheduler:latest test
 ```
 
+OR test from local:
+
+```shell
+set -a; source env-dev.env; set +a
+sls invoke test
+```

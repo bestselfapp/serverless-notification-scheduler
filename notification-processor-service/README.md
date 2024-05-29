@@ -52,3 +52,10 @@ docker run -it \
     --env-file env-dev.env --env-file env-secrets.env \
     notification-processor:latest test
 ```
+
+OR test from local:
+
+```shell
+set -a; source env-dev.env; set +a
+sls invoke test
+```
