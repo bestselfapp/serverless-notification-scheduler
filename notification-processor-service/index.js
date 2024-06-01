@@ -10,9 +10,8 @@ const createLogger = require('./logger');
 let logger = createLogger();
 
 // NOTE: unfortunately, any changes to this schema need to be reproduced in both scheduler and processor
+// schema of the SNS payload to the notification scheduler and processor services
 const schema = Joi.object({
-    // Define your schema here based on the structure of the sample message
-    // For example:
     uniqueProperties: Joi.object({
         // should uniquely identify the user from the calling application
         userId: Joi.string().min(5).required(),
@@ -296,25 +295,6 @@ async function logMessage(logStruct) {
     }
     catch (err) {
         logger.error(`Error logging message: ${err}`);
-        throw err;
-    }
-}
-
-async function getAdaptiveMessage(messageContentCallbackUrl) {
-    try {
-        logger.debug(`Notification Processor - Adaptive message callback URL: ${messageContentCallbackUrl}`);
-        //logger.error(`config.BSA_CALLBACKS_APIKEY: ${config.BSA_CALLBACKS_APIKEY}`);
-        // call the adaptive message callback
-        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
-            headers: {
-                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
-            }
-        });
-        logger.debug(`Notification Processor - Adaptive message response: ${adaptiveMessageResponse.data}`);
-        return adaptiveMessageResponse.data;
-    }
-    catch (err) {
-        logger.error(`Notification Processor - Error in getAdaptiveMessage: ${err}`);
         throw err;
     }
 }
