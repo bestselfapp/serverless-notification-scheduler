@@ -198,6 +198,7 @@ async function canSendNotification(userId) {
 
         // If the record doesn't exist, create a new one
         if (!record) {
+            logger.debug(`No existing record found for user ${userId}. Creating a new one.`);
             record = {
                 hourly: { count: 0, timestamp: now },
                 daily: { count: 0, timestamp: now }
@@ -205,6 +206,7 @@ async function canSendNotification(userId) {
         } else {
             // Delete the record if it's more than a week old
             if (record.hourly.timestamp < oneWeekAgo || record.daily.timestamp < oneWeekAgo) {
+                logger.debug(`Record for user ${userId} is more than a week old. Deleting it.`);
                 await s3db.delete(userId);
                 record = { hourly: { count: 0, timestamp: now }, daily: { count: 0, timestamp: now } };
             }
@@ -212,9 +214,11 @@ async function canSendNotification(userId) {
         
         // Initialize counts if they don't exist or if the timestamps are too old
         if (!record.hourly || record.hourly.timestamp < oneHourAgo) {
+            logger.debug(`Hourly record for user ${userId} doesn't exist or is too old. Resetting it.`);
             record.hourly = { count: 0, timestamp: now };
         }
         if (!record.daily || record.daily.timestamp < oneDayAgo) {
+            logger.debug(`Daily record for user ${userId} doesn't exist or is too old. Resetting it.`);
             record.daily = { count: 0, timestamp: now };
         }
 
@@ -233,6 +237,8 @@ async function canSendNotification(userId) {
         record.hourly.timestamp = now;
         record.daily.count++;
         record.daily.timestamp = now;
+
+        logger.debug(`Updating record for user ${userId} with new counts and timestamps: ${JSON.stringify(record)}`);
 
         // Update the record in S3
         await s3db.put(userId, record);
