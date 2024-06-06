@@ -5,9 +5,8 @@ const testHelpers = require('./testHelpers');
 const config = require('../config');
 const { handler } = require('../index');
 const rewire = require('rewire');
-const index = rewire('../index');
 const S3DB = require('@dwkerwin/s3db');
-const s3db = new S3DB('bsa-email-contents-dev-us-east-1');
+const s3db = new S3DB(config.EMAIL_CONTENTS_BUCKET);
 const createLogger = require('../logger');
 let logger = createLogger();
 
