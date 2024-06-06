@@ -7,9 +7,8 @@ const createLogger = require('./logger');
 let logger = createLogger();
 
 // NOTE: unfortunately, any changes to this schema need to be reproduced in both scheduler and processor
+// schema of the SNS payload to the notification scheduler and processor services
 const schema = Joi.object({
-    // Define your schema here based on the structure of the sample message
-    // For example:
     uniqueProperties: Joi.object({
         // should uniquely identify the user from the calling application
         userId: Joi.string().min(5).required(),
