@@ -3,14 +3,14 @@
         "userId": "12345",
         "messageId": "dailyReminder"
     },
+    "scheduleType": "recurring",
+    "notificationType": "sms",
     "message": {
         "title": "BestSelfApp",
         "subtitle": "",
         "body": "Remember to log today's data!",
         "messageContentCallbackUrl": ""
     },
-    "scheduleType": "recurring",
-    "notificationType": "sms",
     "pushNotificationSettings": {
         "appleSettings": {
             "deviceToken": "deviceTokenHere",

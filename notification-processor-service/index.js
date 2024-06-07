@@ -5,13 +5,13 @@ const config = require('./config');
 const Joi = require('joi');
 const processSms = require('./processSms');
 const processPush = require('./processPush');
+const processEmail = require('./processEmail');
 const createLogger = require('./logger');
 let logger = createLogger();
 
 // NOTE: unfortunately, any changes to this schema need to be reproduced in both scheduler and processor
+// schema of the SNS payload to the notification scheduler and processor services
 const schema = Joi.object({
-    // Define your schema here based on the structure of the sample message
-    // For example:
     uniqueProperties: Joi.object({
         // should uniquely identify the user from the calling application
         userId: Joi.string().min(5).required(),
@@ -19,18 +19,28 @@ const schema = Joi.object({
         // e.g. 'dailyReminder' or 'earlyMorningPredictionWarning'
         messageId: Joi.string().min(5).required()
     }).required(),
+    scheduleType: Joi.string().valid('one-time', 'recurring').required(),
+    notificationType: Joi.string().valid('none', 'push', 'sms', 'email').required(),
     message: Joi.object({
         title: Joi.string().required(),
         subtitle: Joi.string().allow('').optional(),
-        body: Joi.string().required(),
+        body: Joi.any()
+            .when('notificationType', {
+                is: 'email',
+                then: Joi.string().pattern(/^s3:\/\/.*/).required(),
+                otherwise: Joi.string().required()
+            }),
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
-    scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('push', 'sms', 'none').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
         unsubscribeCallbackUrl: Joi.string().allow('').optional(),
+    }).optional(),
+    emailNotificationSettings: Joi.object({
+        toEmailAddress: Joi.string().email().required(),
+        fromEmailAddress: Joi.string().email().required(),
+        unsubscribeUrl: Joi.string().uri().allow('').optional(),
     }).optional(),
     sendTimeUtc: Joi.string().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),
@@ -77,15 +87,20 @@ async function processNotification(event) {
             const adaptiveMessageResponse = await getAdaptiveMessage(message.message.messageContentCallbackUrl);            
             if (adaptiveMessageResponse) {
                 message.message.body = adaptiveMessageResponse;
+                logger.debug(`Notification Processor - Using adaptive message: ${adaptiveMessageResponse}`);
             } else {
                 logger.warn(`Notification Processor - Adaptive message callback error or did not return a valid message.  Will use original message instead`);
             }
+        } else {
+            logger.debug(`Notification Processor - No adaptive message callback URL provided`);
         }
 
         if (notificationType == 'push') {
             await processPush(message);
         } else if (notificationType == 'sms') {
             await processSms(message);
+        } else if (notificationType == 'email') {
+            await processEmail(message);
         } else {
             const errMsg = `Invalid notification type: ${notificationType} for user ${userId}, messageId: ${messageId}`;
             logger.error(errMsg);
@@ -169,68 +184,6 @@ async function getAdaptiveMessage(messageContentCallbackUrl) {
     }
 }
 
-// This is a safeguard to prevent the system from overloading a user with
-// notifications. It ensures that the number of notifications sent to a user
-// does not exceed the maximum limits set per hour and per day. 
-async function canSendNotification(userId) {
-    try {
-        logger.debug(`Checking notification usage vs limits for user ${userId}`)
-        const s3db = new S3DB(config.NOTIFICATION_BUCKET, 'userNotificationMetrics');
-        let record = await s3db.get(userId, { returnNullIfNotFound: true });
-
-        const now = Date.now();
-        const oneHourAgo = now - 60 * 60 * 1000;
-        const oneDayAgo = now - 24 * 60 * 60 * 1000;
-        const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
-
-        // If the record doesn't exist, create a new one
-        if (!record) {
-            record = {
-                hourly: { count: 0, timestamp: now },
-                daily: { count: 0, timestamp: now }
-            };
-        } else {
-            // Delete the record if it's more than a week old
-            if (record.hourly.timestamp < oneWeekAgo || record.daily.timestamp < oneWeekAgo) {
-                await s3db.delete(userId);
-                record = { hourly: { count: 0, timestamp: now }, daily: { count: 0, timestamp: now } };
-            }
-        }
-        
-        // Initialize counts if they don't exist or if the timestamps are too old
-        if (!record.hourly || record.hourly.timestamp < oneHourAgo) {
-            record.hourly = { count: 0, timestamp: now };
-        }
-        if (!record.daily || record.daily.timestamp < oneDayAgo) {
-            record.daily = { count: 0, timestamp: now };
-        }
-
-        // Check if we can send a notification
-        if (record.hourly.count >= config.MAX_NOTIFICATIONS_PER_USER_PER_HOUR) {
-            logger.warn(`Cannot send notification to user ${userId} because the hourly limit of ${config.MAX_NOTIFICATIONS_PER_USER_PER_HOUR} has been reached. ${record.hourly.count} notifications have been sent in the last hour.`);
-            return false;
-        }
-        if (record.daily.count >= config.MAX_NOTIFICATIONS_PER_USER_PER_DAY) {
-            logger.warn(`Cannot send notification to user ${userId} because the daily limit of ${config.MAX_NOTIFICATIONS_PER_USER_PER_DAY} has been reached. ${record.daily.count} notifications have been sent today.`);
-            return false;
-        }
-
-        // Increment counts and update timestamps
-        record.hourly.count++;
-        record.hourly.timestamp = now;
-        record.daily.count++;
-        record.daily.timestamp = now;
-
-        // Update the record in S3
-        await s3db.put(userId, record);
-
-        return true;
-    } catch (error) {
-        logger.error(`An error occurred while checking notification usage for user ${userId}: ${error.message}`);
-        throw error;
-    }
-}
-
 async function logMessage(logStruct) {
     /* logStruct format:
     {
@@ -286,21 +239,58 @@ async function logMessage(logStruct) {
     }
 }
 
-async function getAdaptiveMessage(messageContentCallbackUrl) {
+// This is a safeguard to prevent the system from overloading a user with
+// notifications. It ensures that the number of notifications sent to a user
+// does not exceed the maximum limits set per hour and per day. This relies
+// on the logging function.
+async function canSendNotification(userId) {
     try {
-        logger.debug(`Notification Processor - Adaptive message callback URL: ${messageContentCallbackUrl}`);
-        //logger.error(`config.BSA_CALLBACKS_APIKEY: ${config.BSA_CALLBACKS_APIKEY}`);
-        // call the adaptive message callback
-        const adaptiveMessageResponse = await axios.get(messageContentCallbackUrl, {
-            headers: {
-                'bsa-callbacks-apikey': config.BSA_CALLBACKS_APIKEY
-            }
+        const userLogFile = `${userId}.json`;
+        const s3db = new S3DB(config.NOTIFICATION_BUCKET, 'logs/');
+        let logFile = await s3db.get(userLogFile, { returnNullIfNotFound: true });
+
+        if (!logFile) {
+            // If there's no log file, we can send a notification
+            logger.debug(`canSendNotification - No log file found for user ${userId}, can send notification`);
+            return true;
+        }
+
+        const now = Date.now();
+        const oneHourAgo = now - 60 * 60 * 1000;
+        const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+        const hourlyMessages = logFile.messages.filter(message => {
+            return new Date(message.actualSendTimeUtc) >= oneHourAgo;
         });
-        logger.debug(`Notification Processor - Adaptive message response: ${adaptiveMessageResponse.data}`);
-        return adaptiveMessageResponse.data;
+
+        const dailyMessages = logFile.messages.filter(message => {
+            return new Date(message.actualSendTimeUtc) >= oneDayAgo;
+        });
+
+        // Check if we've reached the hourly limit
+        if (hourlyMessages.length >= config.MAX_NOTIFICATIONS_PER_USER_PER_HOUR) {
+            const recentHourlyMessages = hourlyMessages.slice(-5);
+            logger.debug(`canSendNotification - User ${userId} has reached the hourly limit of ${HOURLY_LIMIT} messages.`);
+            logger.trace(`canSendNotification - Recent hourly messages for user ${userId}: ${JSON.stringify(recentHourlyMessages)}`);
+            return false;
+        }
+
+        // Check if we've reached the daily limit
+        if (dailyMessages.length >= config.MAX_NOTIFICATIONS_PER_USER_PER_DAY) {
+            const recentDailyMessages = dailyMessages.slice(-5);
+            logger.debug(`canSendNotification - User ${userId} has reached the daily limit of ${DAILY_LIMIT} messages.`);
+            logger.trace(`canSendNotification - Recent daily messages for user ${userId}: ${JSON.stringify(recentDailyMessages)}`);
+            return false;
+        }
+
+        logger.debug(`canSendNotification - All clear, user ${userId} has not reached the hourly or daily message limit.`);
+        return true;
+
+        logger.debug(`canSendNotification - All clear, user ${userId} has not reached the hourly or daily message limit.`);
+        return true;
     }
     catch (err) {
-        logger.error(`Notification Processor - Error in getAdaptiveMessage: ${err}`);
+        logger.error(`canSendNotification - Error checking if we can send notification for user ${userId}: ${err}`);
         throw err;
     }
 }

@@ -7,9 +7,8 @@ const createLogger = require('./logger');
 let logger = createLogger();
 
 // NOTE: unfortunately, any changes to this schema need to be reproduced in both scheduler and processor
+// schema of the SNS payload to the notification scheduler and processor services
 const schema = Joi.object({
-    // Define your schema here based on the structure of the sample message
-    // For example:
     uniqueProperties: Joi.object({
         // should uniquely identify the user from the calling application
         userId: Joi.string().min(5).required(),
@@ -17,18 +16,28 @@ const schema = Joi.object({
         // e.g. 'dailyReminder' or 'earlyMorningPredictionWarning'
         messageId: Joi.string().min(5).required()
     }).required(),
+    scheduleType: Joi.string().valid('one-time', 'recurring').required(),
+    notificationType: Joi.string().valid('none', 'push', 'sms', 'email').required(),
     message: Joi.object({
         title: Joi.string().required(),
         subtitle: Joi.string().allow('').optional(),
-        body: Joi.string().required(),
+        body: Joi.any()
+            .when('notificationType', {
+                is: 'email',
+                then: Joi.string().pattern(/^s3:\/\/.*/).required(),
+                otherwise: Joi.string().required()
+            }),
         messageContentCallbackUrl: Joi.string().allow('').optional(),
     }).required(),
-    scheduleType: Joi.string().valid('one-time', 'recurring').required(),
-    notificationType: Joi.string().valid('none', 'push', 'sms').required(),
     pushNotificationSettings: Joi.object().unknown(true).optional(),
     smsNotificationSettings: Joi.object({
         phoneNumber: Joi.string().min(10).required(),
         unsubscribeCallbackUrl: Joi.string().allow('').optional(),
+    }).optional(),
+    emailNotificationSettings: Joi.object({
+        toEmailAddress: Joi.string().email().required(),
+        fromEmailAddress: Joi.string().email().required(),
+        unsubscribeUrl: Joi.string().uri().allow('').optional(),
     }).optional(),
     sendTimeUtc: Joi.string().required(),
     enableAdaptiveTiming: Joi.boolean().optional(),

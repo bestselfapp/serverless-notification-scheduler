@@ -1,0 +1,19 @@
+{
+    "uniqueProperties": {
+        "userId": "12345",
+        "messageId": "weeklyReportEmail"
+    },
+    "scheduleType": "one-time",
+    "notificationType": "email",
+    "message": {
+        "title": "BestSelfApp Test Email",
+        "body": "s3://bsa-email-contents-dev-us-east-1/emails/tests/test12345/",
+        "messageContentCallbackUrl": ""
+    },
+    "emailNotificationSettings": {
+        "toEmailAddress": "user@example.com",
+        "fromEmailAddress": "noreply@bestselfapp.xyz",
+        "unsubscribeUrl": "https://www.bestselfapp.xyz/unsubscribe/12345"
+    },
+    "sendTimeUtc": "now"
+}
