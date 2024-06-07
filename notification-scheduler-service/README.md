@@ -31,7 +31,6 @@ The payload to the SNS topic for this service to schedule a notification is in t
         "unsubscribeCallbackUrl": "https://api-dev.bestselfapp.xyz/v1/callbacks/unsubscribe/12345"
     },
     "emailNotificationSettings": {
-        "emailType": "html",
         "toEmailAddress": "user@example.com",
         "fromEmailAddress": "noreply@bestselfapp.xyz",
         "unsubscribeUrl": "https://www.bestselfapp.xyz/unsubscribe/12345"

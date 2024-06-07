@@ -38,7 +38,6 @@ const schema = Joi.object({
         unsubscribeCallbackUrl: Joi.string().allow('').optional(),
     }).optional(),
     emailNotificationSettings: Joi.object({
-        emailType: Joi.string().valid('text', 'html').default('html').optional(),
         toEmailAddress: Joi.string().email().required(),
         fromEmailAddress: Joi.string().email().required(),
         unsubscribeUrl: Joi.string().uri().allow('').optional(),

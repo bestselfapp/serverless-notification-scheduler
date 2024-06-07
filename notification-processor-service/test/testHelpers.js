@@ -56,18 +56,27 @@ module.exports.downloadTestImage = async function() {
         'https://placekitten.com/200/300',
         'https://picsum.photos/id/237/200/300',
         'https://via.placeholder.com/150',
-        'https://source.unsplash.com/WLUHO9A_xik/1600x900'
+        'https://source.unsplash.com/WLUHO9A_xik/200x300'
         // Add more URLs here
     ];
 
-    for (const url of urls) {
+    function getRandomElement(array) {
+        const randomIndex = Math.floor(Math.random() * array.length);
+        return array[randomIndex];
+    }
+
+    let urlsCopy = [...urls];
+    while (urlsCopy.length > 0) {
+        const url = getRandomElement(urlsCopy);
         try {
             const buffer = await this.downloadImage(url);
             return buffer;
         } catch (error) {
             console.error(`Failed to download image from ${url}: ${error}`);
-            // If there's an error, continue to the next URL
         }
+
+        // Remove the failed URL from the array
+        urlsCopy = urlsCopy.filter(item => item !== url);
     }
 
     throw new Error('Failed to download image from any URL');

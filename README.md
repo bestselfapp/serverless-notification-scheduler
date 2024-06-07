@@ -1,6 +1,6 @@
 # Serverless Notification Scheduler
 
-A lightweight, cost-effective solution for scheduling and sending SMS, mobile push notifications, and emails via AWS. It leverages Twilio as the backend service for sending SMS messages and AWS SES for email. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for using this service, even at some scale should be approximately $0.05 per month, lol.**  Costs for Twilio SMS are another story.
+A lightweight, cost-effective solution for scheduling and sending SMS, mobile push notifications, and emails via AWS. It leverages Twilio as the backend service for sending SMS messages and AWS SES for email. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for running the infrastructure for this service, even at some scale should be approximately $0.05 per month, lol.**  Costs for Twilio SMS are another story, oh and emails cost some money to send too.
 
 There are 3 microservices within this repo which make up this service, which are [described below](#understanding-the-microservices).
 
@@ -13,6 +13,10 @@ Please note that while the functionality is ready for use, it isn't completely t
 ## Sample Request
 
 The following JSON request serves as an example of how to interact with the Notification Services. By dispatching this request to the SNS topic, the service processes the notification settings. This is the sole interface for this service. All operations, including creating, modifying, and removing recurring or time-specified notifications, are managed through SNS requests in this JSON format.
+
+Below are sample requests to use for sending SMS and Emails.
+
+### Sample Request - Sending an SMS Text Message
 
 ```json
 {
@@ -28,24 +32,82 @@ The following JSON request serves as an example of how to interact with the Noti
         "body": "Here's your daily reminder to enter today's data!",
         "messageContentCallbackUrl": "https://api.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
     },
+    "smsNotificationSettings": {
+        "phoneNumber": "6095551212"
+    },
+    "sendTimeUtc": "2024-01-02T02:00:00Z",
+    "enableAdaptiveTiming": false,
+    "adaptiveTimingCallbackUrl": "https://api.bestselfapp.xyz/v1/callbacks/notificationTiming/12345"
+}
+```
+
+### Sample Request - Sending an Email
+
+```json
+{
+    "uniqueProperties": {
+        "userId": "12345",
+        "messageId": "dailyReminder"
+    },
+    "scheduleType": "one-time",
+    "notificationType": "email",
+    "message": {
+        "title": "BestSelfApp",
+        "body": "s3://mybucket/emails/email12345/"
+    },
+    "emailNotificationSettings": {
+        "toEmailAddress": "user@example.com",
+        "fromEmailAddress": "noreply@bestselfapp.xyz",
+        "unsubscribeUrl": "future implementation"
+    },
+    "sendTimeUtc": "now"
+}
+```
+
+When sending an email through this service, the `message.body` property in the above request would be an S3 path in S3 URI notation to the location of the email to send.  It should specify the path only, not the full file, this service will look for an `index.html` in that path.
+
+Example email:
+`s3://mybucket/emails/email12345/index.html`:
+
+```html
+<html>
+    <body>
+        Hello <b>World</b>
+        <img src="cid:testimage.jpg" alt="My Test Image">
+    </body>
+</html>
+```
+
+The image referenced in `cid:testimage.jpg` just needs to exist at the path:
+`s3://mybucket/emails/email12345/testimage.jpg`.
+
+### Sample Request - Sending a Mobile Push Notification
+
+iOS and Android push notifications have not yet been implemented, but this is the intended interface.
+
+```json
+{
+    "uniqueProperties": {
+        "userId": "12345",
+        "messageId": "dailyReminder"
+    },
+    "scheduleType": "recurring",
+    "notificationType": "push",
+    "message": {
+        "title": "BestSelfApp",
+        "subtitle": "",
+        "body": "Here's your daily reminder to enter today's data!",
+        "messageContentCallbackUrl": "https://api.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
+    },
     "pushNotificationSettings": {
         "appleSettings": {
             "deviceToken": "future implementation",
             "credentials": "future implementation"
         }
     },
-    "smsNotificationSettings": {
-        "phoneNumber": "6095551212"
-    },
-    "emailNotificationSettings": {
-        "emailType": "html",
-        "toEmailAddress": "user@example.com",
-        "fromEmailAddress": "noreply@bestselfapp.xyz",
-        "unsubscribeUrl": "https://www.bestselfapp.xyz/unsubscribe/12345"
-    },
     "sendTimeUtc": "2024-01-02T02:00:00Z",
     "enableAdaptiveTiming": false,
-    "adaptiveTimingCallbackUrl": "https://api.bestselfapp.xyz/v1/callbacks/notificationTiming/12345"
+    "adaptiveTimingCallbackUrl": ""
 }
 ```
 
@@ -103,13 +165,11 @@ Even though some fields are only used for push notifications, it's recommended t
 
 `emailNotificationSettings` - This field is used when the `notificationType` is set to `email`. It should be an object with the following properties:
 
-- `emailType`: This field specifies the format of the email. It can be either 'text' or 'html'. If not provided, it defaults to 'html'.
-
 - `toEmailAddress`: This is the email address to which the email notification will be sent. It should be a valid email address.
 
 - `fromEmailAddress`: This is the email address from which the email notification will be sent. It should be a valid email address.
 
-- `unsubscribeUrl`: This is the URL that will be included in the email for users to unsubscribe from future notifications. It should be a valid URL. This field is optional.
+- `unsubscribeUrl`: Not implemented yet!  This is the URL that will be included in the email for users to unsubscribe from future notifications. It should be a valid URL. This field is optional.
 
 `enableAdaptiveTiming` - This field is a placeholder for future functionality. When implemented, it will allow the system to adjust the timing of recurring notifications based on user behavior. If set to `true`, the system will call the `adaptiveTimingCallbackUrl` to determine the optimal time to send the notification. Currently, this functionality is not implemented and this field has no effect.
 

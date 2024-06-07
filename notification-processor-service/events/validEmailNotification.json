@@ -7,26 +7,13 @@
     "notificationType": "email",
     "message": {
         "title": "BestSelfApp Test Email",
-        "subtitle": "",
         "body": "s3://bsa-email-contents-dev-us-east-1/emails/tests/test12345/",
         "messageContentCallbackUrl": ""
     },
-    "pushNotificationSettings": {
-        "appleSettings": {
-            "deviceToken": "future implementation",
-            "credentials": "future implementation"
-        }
-    },
-    "smsNotificationSettings": {
-        "phoneNumber": "6095551212"
-    },
     "emailNotificationSettings": {
-        "emailType": "html",
         "toEmailAddress": "user@example.com",
         "fromEmailAddress": "noreply@bestselfapp.xyz",
         "unsubscribeUrl": "https://www.bestselfapp.xyz/unsubscribe/12345"
     },
-    "sendTimeUtc": "now",
-    "enableAdaptiveTiming": false,
-    "adaptiveTimingCallbackUrl": ""
+    "sendTimeUtc": "now"
 }

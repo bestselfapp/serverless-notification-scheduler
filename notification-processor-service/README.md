@@ -56,6 +56,6 @@ docker run -it \
 OR test from local:
 
 ```shell
-set -a; source env-dev.env; set +a
+set -a; source env-dev.env; source env-secrets.env; set +a
 sls invoke test
 ```
