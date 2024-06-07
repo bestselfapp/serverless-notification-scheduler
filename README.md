@@ -1,18 +1,18 @@
 # Serverless Notification Scheduler
 
-A lightweight, cost-effective solution for scheduling and sending SMS, mobile push notifications, and emails via AWS. It leverages Twilio as the backend service for sending SMS messages and AWS SES for email. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for running the infrastructure for this service, even at some scale should be approximately $0.05 per month, lol.**  Costs for Twilio SMS are another story, oh and emails cost some money to send too.
+A lightweight, cost-effective solution for scheduling and sending SMS, mobile push notifications, and emails via AWS. It leverages Twilio as the backend service for sending SMS messages and AWS SES for email. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for **immediate, scheduled, and recurring messages**, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for running the infrastructure for this service, even at some scale should be approximately $0.05 per month, lol.**  Costs for Twilio SMS are another story, oh and emails cost some money to send too.
 
 There are 3 microservices within this repo which make up this service, which are [described below](#understanding-the-microservices).
 
 ## Origins and Open-Sourcing
 
-This functionality was originally developed for [BestSelfApp](https://www.bestselfapp.xyz/), a mobile application in the wellness and personal development space, which sends daily reminder notifications to users. Built independently from the main app, it can be adapted by any application requiring scheduled or recurring notifications. As such, it was open-sourced to benefit a wider range of projects.
+This functionality was developed for [BestSelfApp](https://www.bestselfapp.xyz/), a mobile application in the wellness and personal development space, which sends daily reminder notifications and email reports to users. Built independently from the main app, it can be adapted by any application requiring scheduled or recurring notifications. As such, it was open-sourced to benefit a wider range of projects.
 
-Please note that while the functionality is ready for use, it isn't completely tailored for open source. There are some variable names and S3 bucket names that include 'BSA' (for BestSelfApp) in the serverless.yml files. If you wish to use this functionality, you would need to provide new bucket names in the serverless.yml files. Aside from these minor changes, the functionality should be easy to use.
+Please note that while the functionality is ready for use, it isn't completely polished up for open source. There are some variable names and S3 bucket names that include 'BSA' (for BestSelfApp) in the serverless.yml files. If you wish to use this functionality, you would need to provide new bucket names in the serverless.yml files. Aside from these minor changes, the functionality should be easy to use.
 
-## Sample Request
+## Sample Requests
 
-The following JSON request serves as an example of how to interact with the Notification Services. By dispatching this request to the SNS topic, the service processes the notification settings. This is the sole interface for this service. All operations, including creating, modifying, and removing recurring or time-specified notifications, are managed through SNS requests in this JSON format.
+The following JSON requests serve as an example of how to interact with the Notification Services. All you have to do post your request to this SNS topic and the Serverless Notification Scheduler will take care of the rest.  This is the sole interface for this service. All operations, including creating, modifying, and removing recurring or time-specified notifications, are managed through SNS requests in this JSON format.
 
 Below are sample requests to use for sending SMS and Emails.
 
