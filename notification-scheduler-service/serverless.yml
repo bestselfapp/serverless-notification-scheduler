@@ -25,6 +25,12 @@ provider:
       Resource:
         - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/notifications/*
         - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
+    -
+      Effect: Allow
+      Action:
+        - sns:Publish
+      Resource:
+        - arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor
 
 plugins:
   - serverless-mocha-plugin
@@ -42,6 +48,7 @@ custom:
 package:
   exclude:
     - .git/**
+    - .serverless/**
     - terraform/**
     - scripts/**
 
@@ -49,6 +56,7 @@ resources:
   Resources:
     NotificationsBucket:
       Type: 'AWS::S3::Bucket'
+      DeletionPolicy: Retain
       Properties:
         BucketName: bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
         PublicAccessBlockConfiguration:
@@ -136,6 +144,7 @@ functions:
       NOTIFICATION_BUCKET: ${self:custom.notificationsBucketName}
       NOTIFICATION_SCHEDULER_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler
       BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
+      NOTIFICATION_PROCESSOR_TOPIC_ARN: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-processor
     events:
       - sns: 
           arn: arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler

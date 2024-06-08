@@ -25,14 +25,7 @@ async function process(event) {
         }
 
         let timeSlots = [];
-        // always process the 'now' time slot (every minute)
-        timeSlots.push('now');
-        // if the time slot is not now, it's a scheduled notification, which
-        // we support in 5 minute intervals, so if the minute is divisible
-        // by 5, also process the time slot
-        if (eventTime.getMinutes() % 5 === 0) {
-            timeSlots.push(determineTimeSlotFromEventTime(eventTime));
-        }
+        timeSlots.push(determineTimeSlotFromEventTime(eventTime));
 
         let totalSubmitted = 0, totalDeleted = 0;
         for (const timeSlot of timeSlots) {

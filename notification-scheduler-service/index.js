@@ -73,43 +73,52 @@ async function processNotification(event) {
             logger.error(`Notification Scheduler - Error parsing dateStr: ${message.sendTimeUtc}, Error: ${err}`);
         }
 
-        // find the time slot for the notification
-        let timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
-        logger.debug(`Notification Scheduler - Time slot from raw event message: ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)})`);
-
-        if (!timeSlot || !timeSlotFormatValid(timeSlot)) {
-            const errMsg = `Notification Scheduler - Unable to determine time slot from raw time: ${message.sendTimeUtc}`;
-            logger.error(errMsg);
-            throw new Error(errMsg);
-        }
-        logger.debug(`Notification Scheduler - Setting time slot to: ${timeSlot} from raw time: ${message.sendTimeUtc}`);
-
-        const timeSlotMinutePart = parseInt(timeSlot.split('-')[1]);
-        if (timeSlotMinutePart % 5 !== 0) {
-            logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
-        }
-        
-        // check if the unique hash exists in any time slot folder
-        const UidTimeSlots = await findUidTimeSlots(Uid);
-
-        // if it does, delete the existing notification
-        if (UidTimeSlots.length > 0) {
-            for (const UidTimeSlot of UidTimeSlots) {
-                logger.trace(`Notification Scheduler - Checking existing notification in time slot: ${UidTimeSlot}`)
-                if (UidTimeSlot == timeSlot) {
-                    logger.debug(`Notification Scheduler - Notification ${Uid} already exists in target time slot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)}), will leave it there.`);
-                } else {
-                    await deleteUid(UidTimeSlot, Uid);
-                    logger.debug(`Notification Scheduler - Notification ${Uid} deleted from time slot ${UidTimeSlot} (${convertUtcTimeSlotStringToEst(UidTimeSlot)}`);
-                }
-            }
+        if (message.sendTimeUtc.toLowerCase() === 'now') {
+            // if the send time is 'now' we're going to bypass the whole scheduling
+            // process and just repost the message event to the processor topic
+            // for immediate processing
+            logger.debug(`Notification Scheduler - Message is scheduled to be sent immediately.`);
+            await postToProcessorTopic(message);
         } else {
-            logger.debug(`Notification Scheduler - Notification ${Uid} does not exist in any existing time slot, will add to time slot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
-        }
 
-        // save the notification to the time slot folder
-        // (even if it already exists, we want to overwrite any non-unique properties)
-        await saveNotification(timeSlot, Uid, message);
+            // find the time slot for the notification
+            let timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
+            logger.debug(`Notification Scheduler - Time slot from raw event message: ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)})`);
+
+            if (!timeSlot || !timeSlotFormatValid(timeSlot)) {
+                const errMsg = `Notification Scheduler - Unable to determine time slot from raw time: ${message.sendTimeUtc}`;
+                logger.error(errMsg);
+                throw new Error(errMsg);
+            }
+            logger.debug(`Notification Scheduler - Setting time slot to: ${timeSlot} from raw time: ${message.sendTimeUtc}`);
+
+            const timeSlotMinutePart = parseInt(timeSlot.split('-')[1]);
+            if (timeSlotMinutePart % 5 !== 0) {
+                logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
+            }
+            
+            // check if the unique hash exists in any time slot folder
+            const UidTimeSlots = await findUidTimeSlots(Uid);
+
+            // if it does, delete the existing notification
+            if (UidTimeSlots.length > 0) {
+                for (const UidTimeSlot of UidTimeSlots) {
+                    logger.trace(`Notification Scheduler - Checking existing notification in time slot: ${UidTimeSlot}`)
+                    if (UidTimeSlot == timeSlot) {
+                        logger.debug(`Notification Scheduler - Notification ${Uid} already exists in target time slot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)}), will leave it there.`);
+                    } else {
+                        await deleteUid(UidTimeSlot, Uid);
+                        logger.debug(`Notification Scheduler - Notification ${Uid} deleted from time slot ${UidTimeSlot} (${convertUtcTimeSlotStringToEst(UidTimeSlot)}`);
+                    }
+                }
+            } else {
+                logger.debug(`Notification Scheduler - Notification ${Uid} does not exist in any existing time slot, will add to time slot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
+            }
+
+            // save the notification to the time slot folder
+            // (even if it already exists, we want to overwrite any non-unique properties)
+            await saveNotification(timeSlot, Uid, message);
+        }
     }
     catch (err) {
         logger.error(`Error in notification scheduler: ${err}`);
@@ -246,6 +255,17 @@ function convertUtcTimeSlotStringToEst(timeSlotStr) {
         console.error(`Error in convertUtcTimeSlotStringToEst: ${err}`);
         throw err;
     }
+}
+
+async function postToProcessorTopic(message) {
+    // post to the processor SNS topic
+    const sns = new AWS.SNS({ region: config.AWS_REGION });
+    const params = {
+        Message: JSON.stringify(message),
+        TopicArn: config.NOTIFICATION_PROCESSOR_TOPIC_ARN
+    };
+    await sns.publish(params).promise();
+    logger.debug(`Message posted to SNS topic: ${config.NOTIFICATION_PROCESSOR_TOPIC_ARN}, message: ${params.Message}`);
 }
 
 module.exports.handler = processNotification
