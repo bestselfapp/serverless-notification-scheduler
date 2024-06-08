@@ -79,9 +79,9 @@ resources:
         AccessControl: Private
         LifecycleConfiguration:
           Rules:
-            - Id: ExpireContentsAfterOneYear
+            - Id: ExpireContentsAfterNinetyDays
               Status: Enabled
-              ExpirationInDays: 365
+              ExpirationInDays: 90
 
     EmailContentsBucketParameter:
       Type: 'AWS::SSM::Parameter'
