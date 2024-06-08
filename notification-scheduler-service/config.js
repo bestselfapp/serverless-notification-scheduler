@@ -3,6 +3,7 @@ const config = {
     LOG_LEVEL: process.env.LOG_LEVEL || 'debug',
     NOTIFICATION_BUCKET: process.env.NOTIFICATION_BUCKET,
     BSA_CALLBACKS_APIKEY: process.env.BSA_CALLBACKS_APIKEY,
+    NOTIFICATION_PROCESSOR_TOPIC_ARN: process.env.NOTIFICATION_PROCESSOR_TOPIC_ARN
   }
   
   module.exports = config
