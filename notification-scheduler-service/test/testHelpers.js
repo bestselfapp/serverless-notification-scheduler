@@ -1,6 +1,6 @@
 const config = require('../config');
 const crypto = require('crypto');
-const S3DB = require('@bestselfapp/s3db');
+const S3DB = require('@dwkerwin/s3db');
 const createLogger = require('../logger');
 let logger = createLogger();
 

@@ -1,18 +1,22 @@
 # Serverless Notification Scheduler
 
-A lightweight, cost-effective solution for scheduling and sending SMS and mobile push notifications via AWS. It leverages Twilio as the backend service for sending SMS messages. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for both immediate and recurring messages, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for using this service, even at some scale should be approximately $0.05 per month, lol.**  Twilio SMS charges are another story.
+A lightweight, cost-effective solution for scheduling and sending SMS, mobile push notifications, and emails via AWS. It leverages Twilio as the backend service for sending SMS messages and AWS SES for email. Simply post a JSON request to an SNS topic, and let the service handle the rest. It's perfect for **immediate, scheduled, and recurring messages**, easily configured through a single idempotent JSON request. The system supports dynamic, custom text for recurring messages via callback URLs, allowing for real-time content updates. Built entirely on serverless AWS components like SNS, EventBridge, Lambda, and S3, it's not just efficient but also incredibly economical.  **Your AWS bill for running the infrastructure for this service, even at some scale should be approximately $0.05 per month, lol.**  Costs for Twilio SMS are another story, oh and emails cost some money to send too.
 
 There are 3 microservices within this repo which make up this service, which are [described below](#understanding-the-microservices).
 
 ## Origins and Open-Sourcing
 
-This functionality was originally developed for [BestSelfApp](https://www.bestselfapp.xyz/), a mobile application in the wellness and personal development space, which sends daily reminder notifications to users. Built independently from the main app, it can be adapted by any application requiring scheduled or recurring notifications. As such, it was open-sourced to benefit a wider range of projects.
+This functionality was developed for [BestSelfApp](https://www.bestselfapp.xyz/), a mobile application in the wellness and personal development space, which sends daily reminder notifications and email reports to users. Built independently from the main app, it can be adapted by any application requiring scheduled or recurring notifications. As such, it was open-sourced to benefit a wider range of projects.
 
-Please note that while the functionality is ready for use, it isn't completely tailored for open source. There are some variable names and S3 bucket names that include 'BSA' (for BestSelfApp) in the serverless.yml files. If you wish to use this functionality, you would need to provide new bucket names in the serverless.yml files. Aside from these minor changes, the functionality should be easy to use.
+Please note that while the functionality is ready for use, it isn't completely polished up for open source. There are some variable names and S3 bucket names that include 'BSA' (for BestSelfApp) in the serverless.yml files. If you wish to use this functionality, you would need to provide new bucket names in the serverless.yml files. Aside from these minor changes, the functionality should be easy to use.
 
-## Sample Request
+## Sample Requests
 
-The following JSON request serves as an example of how to interact with the Notification Services. By dispatching this request to the SNS topic, the service processes the notification settings. This is the sole interface for this service. All operations, including creating, modifying, and removing recurring or time-specified notifications, are managed through SNS requests in this JSON format.
+The following JSON requests serve as an example of how to interact with the Notification Services. All you have to do post your request to this SNS topic and the Serverless Notification Scheduler will take care of the rest.  This is the sole interface for this service. All operations, including creating, modifying, and removing recurring or time-specified notifications, are managed through SNS requests in this JSON format.
+
+Below are sample requests to use for sending SMS and Emails.
+
+### Sample Request - Sending an SMS Text Message
 
 ```json
 {
@@ -20,19 +24,13 @@ The following JSON request serves as an example of how to interact with the Noti
         "userId": "12345",
         "messageId": "dailyReminder"
     },
+    "scheduleType": "recurring",
+    "notificationType": "sms",
     "message": {
-        "title": "",
+        "title": "BestSelfApp",
         "subtitle": "",
         "body": "Here's your daily reminder to enter today's data!",
         "messageContentCallbackUrl": "https://api.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
-    },
-    "scheduleType": "recurring",
-    "notificationType": "sms",
-    "pushNotificationSettings": {
-        "appleSettings": {
-            "deviceToken": "future implementation",
-            "credentials": "future implementation"
-        }
     },
     "smsNotificationSettings": {
         "phoneNumber": "6095551212"
@@ -40,6 +38,76 @@ The following JSON request serves as an example of how to interact with the Noti
     "sendTimeUtc": "2024-01-02T02:00:00Z",
     "enableAdaptiveTiming": false,
     "adaptiveTimingCallbackUrl": "https://api.bestselfapp.xyz/v1/callbacks/notificationTiming/12345"
+}
+```
+
+### Sample Request - Sending an Email
+
+```json
+{
+    "uniqueProperties": {
+        "userId": "12345",
+        "messageId": "dailyReminder"
+    },
+    "scheduleType": "one-time",
+    "notificationType": "email",
+    "message": {
+        "title": "BestSelfApp",
+        "body": "s3://mybucket/emails/email12345/"
+    },
+    "emailNotificationSettings": {
+        "toEmailAddress": "user@example.com",
+        "fromEmailAddress": "noreply@bestselfapp.xyz",
+        "unsubscribeUrl": "future implementation"
+    },
+    "sendTimeUtc": "now"
+}
+```
+
+When sending an email through this service, the `message.body` property in the above request would be an S3 path in S3 URI notation to the location of the email to send.  It should specify the path only, not the full file, this service will look for an `index.html` in that path.
+
+Example email:
+`s3://mybucket/emails/email12345/index.html`:
+
+```html
+<html>
+    <body>
+        Hello <b>World</b>
+        <img src="cid:testimage.jpg" alt="My Test Image">
+    </body>
+</html>
+```
+
+The image referenced in `cid:testimage.jpg` just needs to exist at the path:
+`s3://mybucket/emails/email12345/testimage.jpg`.
+
+### Sample Request - Sending a Mobile Push Notification
+
+iOS and Android push notifications have not yet been implemented, but this is the intended interface.
+
+```json
+{
+    "uniqueProperties": {
+        "userId": "12345",
+        "messageId": "dailyReminder"
+    },
+    "scheduleType": "recurring",
+    "notificationType": "push",
+    "message": {
+        "title": "BestSelfApp",
+        "subtitle": "",
+        "body": "Here's your daily reminder to enter today's data!",
+        "messageContentCallbackUrl": "https://api.bestselfapp.xyz/v1/callbacks/notificationMessage/12345"
+    },
+    "pushNotificationSettings": {
+        "appleSettings": {
+            "deviceToken": "future implementation",
+            "credentials": "future implementation"
+        }
+    },
+    "sendTimeUtc": "2024-01-02T02:00:00Z",
+    "enableAdaptiveTiming": false,
+    "adaptiveTimingCallbackUrl": ""
 }
 ```
 
@@ -55,31 +123,33 @@ The JSON example above contains several fields. Below, each field is explained i
 
 Together, the `userId` and `messageId` form a unique key that represents a specific message for a specific user within the system. This allows the system to track each message and ensure that it is delivered correctly.
 
-`message` - This field contains the content of the notification message. It's designed to handle both SMS and push notifications, depending on the user's preference. It has four sub-fields:
-
-- `title`: This is the title of the notification. It's primarily used for push notifications on iOS and Android devices, where it will be displayed as the heading. For SMS notifications, the `title` field is not used.
-
-- `subtitle`: This is a secondary line of text that provides additional information about the notification. It's only used for push notifications on iOS and Android devices. For SMS notifications, the `subtitle` field is not used.
-
-- `body`: This is the main content of the notification. It will be displayed as the body of the push notification on iOS and Android devices. For SMS notifications, it will be included as the main text of the message.
-
-- `messageContentCallbackUrl` (optional): This is a URL that the system will call to retrieve the final content of the message just before it is sent. This allows the content of the message to be dynamic and change based on the current state of your application. The system expects the URL to return a JSON object with `title`, `subtitle`, and `body` fields. If this field is not provided, the system will use the `title`, `subtitle`, and `body` fields as they are.
-
-Even though some fields are only used for push notifications, it's recommended to provide all fields in case the user switches their preference from SMS to push notifications or vice versa. The system will automatically use the appropriate fields based on the notification type.
-
 `scheduleType` - This field determines the scheduling behavior of the notification. It accepts two possible values:
 
 - `recurring`: If this value is set, the notification will be sent on a recurring schedule. The frequency of the recurrence is determined by other fields in the JSON request.
 
 - `one-time`: If this value is set, the notification will be sent only once at a specified time.
 
-`notificationType` - This field specifies the type of notification to be sent. It accepts three possible values:
+`notificationType` - This field specifies the type of notification to be sent. It accepts four possible values:
 
 - `sms`: If this value is set, the notification will be sent as an SMS message to the phone number specified in the `smsNotificationSettings` field.
 
 - `push`: If this value is set, the notification will be sent as a push notification to the device specified in the `pushNotificationSettings` field.
 
+- `email`: If this value is set, the notification will be sent as an email to the address specified in the `emailNotificationSettings` field.
+
 - `none`: If this value is set, no notification will be sent. This can be used to cancel a previously scheduled notification.
+
+`message` - This field contains the content of the notification message. It's designed to handle both SMS and push notifications, depending on the user's preference. It has four sub-fields:
+
+- `title`: This is the title of the notification. It's primarily used for push notifications on iOS and Android devices, where it will be displayed as the heading. For SMS notifications, the `title` field is not used.
+
+- `subtitle`: This is a secondary line of text that provides additional information about the notification. It's only used for push notifications on iOS and Android devices. For SMS notifications and email, the `subtitle` field is not used.
+
+- `body`: This is the main content of the notification. For push notifications, it forms the body displayed on iOS and Android devices. For SMS, it's the main text of the message. For emails, `body` should be an S3 key pointing to the email resources. Format it as `s3://bucketname/path/`. The system expects an `index.html` file at this path (`s3://bucketname/path/index.html`) and any other resources (like graphics or stylesheets) needed for the email within the same path.
+
+- `messageContentCallbackUrl` (optional): This is a URL that the system will call to retrieve the final content of the message just before it is sent. This allows the content of the message to be dynamic and change based on the current state of your application. The system expects the URL to return a JSON object with `title`, `subtitle`, and `body` fields. If this field is not provided, the system will use the `title`, `subtitle`, and `body` fields as they are.
+
+Even though some fields are only used for push notifications, it's recommended to provide all fields in case the user switches their preference from SMS to push notifications or vice versa. The system will automatically use the appropriate fields based on the notification type.
 
 `pushNotificationSettings` - This field is intended for future use to support push notifications. It is not currently implemented and the system only supports SMS notifications at this time. They are placeholders for future functionality.
 
@@ -92,6 +162,14 @@ Even though some fields are only used for push notifications, it's recommended t
 - `now`: If this value is set, the notification will be sent as soon as possible, typically within the next minute.
 
 - A UTC timestamp: If a specific date and time is provided, the notification will be scheduled to be sent at that time. The timestamp should be in the format "YYYY-MM-DDTHH:MM:SSZ". The system will round the provided timestamp to the next nearest 5-minute mark. For example, if "2024-01-02T02:03:00Z" is provided, it will be rounded to "2024-01-02T02:05:00Z". Please note that the system only processes scheduled notifications every five minutes. To ensure your notification is sent at the desired time, it's recommended to round the timestamp to the nearest 5 minutes yourself.
+
+`emailNotificationSettings` - This field is used when the `notificationType` is set to `email`. It should be an object with the following properties:
+
+- `toEmailAddress`: This is the email address to which the email notification will be sent. It should be a valid email address.
+
+- `fromEmailAddress`: This is the email address from which the email notification will be sent. It should be a valid email address.
+
+- `unsubscribeUrl`: Not implemented yet!  This is the URL that will be included in the email for users to unsubscribe from future notifications. It should be a valid URL. This field is optional.
 
 `enableAdaptiveTiming` - This field is a placeholder for future functionality. When implemented, it will allow the system to adjust the timing of recurring notifications based on user behavior. If set to `true`, the system will call the `adaptiveTimingCallbackUrl` to determine the optimal time to send the notification. Currently, this functionality is not implemented and this field has no effect.
 
