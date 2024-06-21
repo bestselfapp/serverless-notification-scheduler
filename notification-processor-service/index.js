@@ -279,7 +279,7 @@ async function canSendNotification(userId) {
         // Check if we've reached the daily limit
         if (dailyMessages.length >= config.MAX_NOTIFICATIONS_PER_USER_PER_DAY) {
             const recentDailyMessages = dailyMessages.slice(-5);
-            logger.debug(`canSendNotification - User ${userId} has reached the daily limit of ${DAILY_LIMIT} messages.`);
+            logger.debug(`canSendNotification - User ${userId} has reached the daily limit of ${MAX_NOTIFICATIONS_PER_USER_PER_DAY} messages.`);
             logger.trace(`canSendNotification - Recent daily messages for user ${userId}: ${JSON.stringify(recentDailyMessages)}`);
             return false;
         }
