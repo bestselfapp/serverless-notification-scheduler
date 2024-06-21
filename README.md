@@ -56,6 +56,7 @@ Below are sample requests to use for sending SMS and Emails.
         "body": "s3://mybucket/emails/email12345/"
     },
     "emailNotificationSettings": {
+        "emailType": "html",
         "toEmailAddress": "user@example.com",
         "fromEmailAddress": "noreply@bestselfapp.xyz",
         "unsubscribeUrl": "future implementation"
@@ -164,6 +165,8 @@ Even though some fields are only used for push notifications, it's recommended t
 - A UTC timestamp: If a specific date and time is provided, the notification will be scheduled to be sent at that time. The timestamp should be in the format "YYYY-MM-DDTHH:MM:SSZ". The system will round the provided timestamp to the next nearest 5-minute mark. For example, if "2024-01-02T02:03:00Z" is provided, it will be rounded to "2024-01-02T02:05:00Z". Please note that the system only processes scheduled notifications every five minutes. To ensure your notification is sent at the desired time, it's recommended to round the timestamp to the nearest 5 minutes yourself.
 
 `emailNotificationSettings` - This field is used when the `notificationType` is set to `email`. It should be an object with the following properties:
+
+- `emailType`: Either `html` or `text`.
 
 - `toEmailAddress`: This is the email address to which the email notification will be sent. It should be a valid email address.
 
