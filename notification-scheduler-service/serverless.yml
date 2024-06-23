@@ -74,6 +74,13 @@ resources:
       Properties:
         TopicName: bsa-notification-scheduler
 
+    NotificationSchedulerTopicSsmExport:
+      Type: 'AWS::SSM::Parameter'
+      Properties:
+        Name: /bsa/exports/notifications/notifications_scheduler_topic_arn
+        Type: String
+        Value: 'arn:aws:sns:${self:provider.region}:${aws:accountId}:bsa-notification-scheduler'
+
     LambdaErrorTopic:
       Type: 'AWS::SNS::Topic'
       Properties:
