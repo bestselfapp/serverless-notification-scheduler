@@ -88,7 +88,7 @@ resources:
       Properties:
         Name: '/bsa/exports/notificaitons/email-contents-bucket'
         Type: 'String'
-        Value: 'bsa-email-contents-${self:provider.region}'
+        Value: 'bsa-email-contents-${env:AWS_ENV, ''dev''}-${self:provider.region}'
         Description: 'S3 bucket for email contents, other services can write to this, Notification Scheduler Service will read'
         Tier: 'Standard'
 
