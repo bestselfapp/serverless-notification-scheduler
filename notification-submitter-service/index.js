@@ -58,11 +58,24 @@ async function processTimeSlot(timeSlot) {
 
 async function processTimeSlotItem(notificationKey, timeSlot) {
     logger.info(`Processing notification: ${notificationKey} from timeslot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
-    let wasSubmitted = false, wasDeleted = false;
+
+    logger.info(`Checking notification: ${notificationKey} from timeslot ${timeSlot} (${convertUtcTimeSlotStringToEst(timeSlot)})`);
     const s3db = new S3DB(config.NOTIFICATION_BUCKET, `notifications/slots/${timeSlot}`);
     const notificationObj = await s3db.get(notificationKey);
+    let wasSubmitted = false, wasDeleted = false;
     const correlationId = `${notificationObj.uniqueProperties.userId}-${notificationObj.uniqueProperties.messageId}`;
     logger = createLogger(correlationId);
+
+    // Assuming notificationObj has a 'date' property in 'YYYY-MM-DD' format
+    const notificationDate = moment(notificationObj.date);
+    const currentDate = moment().tz('America/New_York').startOf('day');
+    const isToday = notificationDate.isSame(currentDate, 'day');
+
+    if (!isToday) {
+        // If the notification is for a future date, log and return
+        logger.info(`Notification ${notificationKey} is scheduled for a future date: ${notificationDate.format('YYYY-MM-DD')}. Skipping for now.`);
+        return { wasSubmitted: false, wasDeleted: false };
+    }
 
     // post to the processor SNS topic
     const sns = new AWS.SNS({ region: config.AWS_REGION });
