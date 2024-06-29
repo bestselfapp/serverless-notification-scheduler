@@ -67,8 +67,8 @@ async function processTimeSlotItem(notificationKey, timeSlot) {
     logger = createLogger(correlationId);
 
     // Assuming notificationObj has a 'date' property in 'YYYY-MM-DD' format
-    const notificationDate = moment(notificationObj.date);
-    const currentDate = moment().tz('America/New_York').startOf('day');
+    const notificationDate = moment.utc(notificationObj.date);
+    const currentDate = moment.utc().startOf('day');
     const isToday = notificationDate.isSame(currentDate, 'day');
 
     if (!isToday) {
@@ -76,7 +76,7 @@ async function processTimeSlotItem(notificationKey, timeSlot) {
         logger.info(`Notification ${notificationKey} is scheduled for a future date: ${notificationDate.format('YYYY-MM-DD')}. Skipping for now.`);
         return { wasSubmitted: false, wasDeleted: false };
     }
-
+    
     // post to the processor SNS topic
     const sns = new AWS.SNS({ region: config.AWS_REGION });
     const params = {
