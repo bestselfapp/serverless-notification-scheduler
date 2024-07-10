@@ -150,6 +150,7 @@ functions:
       EMAIL_CONTENTS_BUCKET: bsa-email-contents-${self:provider.region}
       TWILIO_ACCOUNT_SID: ${ssm:/bsa/TWILIO_ACCOUNT_SID}
       TWILIO_AUTH_TOKEN: ${ssm:/bsa/TWILIO_AUTH_TOKEN}
+      TWILIO_MESSAGING_SERVICE_SID: ${ssm:/bsa/TWILIO_MESSAGING_SERVICE_SID}
       TWILIO_FROM_NUMBER: ${ssm:/bsa/TWILIO_FROM_NUMBER}
       BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
       MAX_NOTIFICATIONS_PER_USER_PER_HOUR: 2

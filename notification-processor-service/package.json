@@ -18,7 +18,7 @@
     "nodemailer": "^6.9.13",
     "nodemailer-ses-transport": "^1.5.1",
     "twilio": "^4.20.0",
-    "twilio-sms-plus": "^0.0.5"
+    "twilio-sms-plus": "^0.0.6"
   },
   "devDependencies": {
     "rewire": "^7.0.0",
