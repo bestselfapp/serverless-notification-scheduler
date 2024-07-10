@@ -186,6 +186,8 @@ These are the paths that must exist in your AWS account's Systems Manager Parame
 
 - `/bsa/TWILIO_AUTH_TOKEN`: This is your Twilio Auth Token, which is used along with the Account SID to authenticate requests made to the Twilio API.
 
+- `/bsa/TWILIO_MESSAGING_SERVICE_SID`: This is your Twilio Messaging Service ID, which is used to identify which messaging service to send through.
+
 - `/bsa/TWILIO_FROM_NUMBER`: This is the phone number from which SMS messages will be sent. This number must be a valid Twilio phone number associated with your account.
 
 - `/bsa/secrets/callbacks_apikey`: This is the API key that will be sent in the header of any requests made to the callback URLs specified in your JSON requests. This key is used to authenticate the system when requesting dynamic content for your notifications. It assumes that the callback URLs provided in your application are protected routes secured by this API key, preventing unauthorized access.

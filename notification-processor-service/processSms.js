@@ -15,6 +15,7 @@ async function sendMessage(event) {
             textMessage: messageText,
             toPhoneNumber: event.smsNotificationSettings.phoneNumber,
             fromPhoneNumber: config.TWILIO_FROM_NUMBER,
+            messagingServiceSid: config.TWILIO_MESSAGING_SERVICE_SID
         };
         
         const twilioPlus = new TwilioSmsPlus({
