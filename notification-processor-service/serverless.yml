@@ -153,8 +153,8 @@ functions:
       TWILIO_MESSAGING_SERVICE_SID: ${ssm:/bsa/TWILIO_MESSAGING_SERVICE_SID}
       TWILIO_FROM_NUMBER: ${ssm:/bsa/TWILIO_FROM_NUMBER}
       BSA_CALLBACKS_APIKEY: ${ssm:/bsa/secrets/callbacks_apikey}
-      MAX_NOTIFICATIONS_PER_USER_PER_HOUR: 2
-      MAX_NOTIFICATIONS_PER_USER_PER_DAY: 3
+      MAX_NOTIFICATIONS_PER_USER_PER_HOUR: 10
+      MAX_NOTIFICATIONS_PER_USER_PER_DAY: 15
     events:
       - sns:
           arn: ${ssm:/bsa/exports/notifications/notifications_processor_topic_arn}
