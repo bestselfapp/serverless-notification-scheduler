@@ -271,7 +271,7 @@ async function canSendNotification(userId) {
         // Check if we've reached the hourly limit
         if (hourlyMessages.length >= config.MAX_NOTIFICATIONS_PER_USER_PER_HOUR) {
             const recentHourlyMessages = hourlyMessages.slice(-5);
-            logger.debug(`canSendNotification - User ${userId} has reached the hourly limit of ${HOURLY_LIMIT} messages.`);
+            logger.debug(`canSendNotification - User ${userId} has reached the hourly limit of ${MAX_NOTIFICATIONS_PER_USER_PER_HOUR} messages.`);
             logger.trace(`canSendNotification - Recent hourly messages for user ${userId}: ${JSON.stringify(recentHourlyMessages)}`);
             return false;
         }
