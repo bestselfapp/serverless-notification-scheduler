@@ -139,15 +139,16 @@ async function processNotification(event) {
 // string 'now', which is treated as a special time slot itself.
 function getTimeSlotFromDateStr(dateStr) {
     try {
-        if (dateStr.toLowerCase() === 'now') {
-            return 'now';
-        }
-
         logger.trace(`getTimeSlotFromDateStr - Will attempt to parse time slot from input dateStr: ${dateStr}`);
         const sendTime = new Date(dateStr);
         const hours = sendTime.getUTCHours().toString().padStart(2, '0');
-        const minutes = sendTime.getUTCMinutes().toString().padStart(2, '0');
-        const timeSlot = `${hours}-${minutes}`;
+        
+        // Round minutes down to the nearest 5-minute interval
+        let minutes = sendTime.getUTCMinutes();
+        minutes = Math.floor(minutes / 5) * 5;
+        
+        const minutesStr = minutes.toString().padStart(2, '0');
+        const timeSlot = `${hours}-${minutesStr}`;
         return timeSlot;
     } catch (err) {
         logger.error(`getTimeSlotFromDateStr - Error parsing dateStr: ${dateStr}`);
