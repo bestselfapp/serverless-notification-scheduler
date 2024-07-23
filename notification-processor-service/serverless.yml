@@ -7,7 +7,7 @@ provider:
   name: aws
   region: us-east-1
   runtime: nodejs18.x
-  deploymentBucket: bsa-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
+  deploymentBucket: ${self:custom.prefix}-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
   stage: live
   stackName: bsa-${self:service}-live
   memorySize: 1024
@@ -23,10 +23,10 @@ provider:
       - s3:DeleteObject
       - s3:ListBucket
     Resource:
-      - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/*
-      - arn:aws:s3:::bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
-      - arn:aws:s3:::bsa-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}/*
-      - arn:aws:s3:::bsa-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}
+      - arn:aws:s3:::${self:custom.prefix}-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}/*
+      - arn:aws:s3:::${self:custom.prefix}-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
+      - arn:aws:s3:::${self:custom.prefix}-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}/*
+      - arn:aws:s3:::${self:custom.prefix}-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}
   -
     Effect: Allow
     Action:
@@ -51,6 +51,7 @@ plugins:
   - serverless-plugin-diff
 
 custom:
+  prefix: bsa
   # serverless-prune-plugin
   prune:
     automatic: true
@@ -75,7 +76,7 @@ resources:
     EmailContentsBucket:
       Type: 'AWS::S3::Bucket'
       Properties:
-        BucketName: bsa-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}
+        BucketName: ${self:custom.prefix}-email-contents-${env:AWS_ENV, 'dev'}-${self:provider.region}
         AccessControl: Private
         LifecycleConfiguration:
           Rules:
@@ -88,7 +89,7 @@ resources:
       Properties:
         Name: '/bsa/exports/notificaitons/email-contents-bucket'
         Type: 'String'
-        Value: 'bsa-email-contents-${env:AWS_ENV, ''dev''}-${self:provider.region}'
+        Value: '${self:custom.prefix}-email-contents-${env:AWS_ENV, ''dev''}-${self:provider.region}'
         Description: 'S3 bucket for email contents, other services can write to this, Notification Scheduler Service will read'
         Tier: 'Standard'
 
