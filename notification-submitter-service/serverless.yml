@@ -7,7 +7,7 @@ provider:
   name: aws
   region: us-east-1
   runtime: nodejs18.x
-  deploymentBucket: bsa-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
+  deploymentBucket: ${self:custom.prefix}-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
   stage: live
   stackName: bsa-${self:service}-live
   memorySize: 1024
@@ -37,11 +37,12 @@ plugins:
   - serverless-plugin-diff
 
 custom:
+  prefix: bsa
   # serverless-prune-plugin
   prune:
     automatic: true
     number: 5
-  notificationsBucket: bsa-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
+  notificationsBucket: ${self:custom.prefix}-notifications-${env:AWS_ENV, 'dev'}-${self:provider.region}
 
 package:
   exclude:

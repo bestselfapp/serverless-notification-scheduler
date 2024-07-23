@@ -27,11 +27,11 @@ Not working?  Try `npm i` locally first. ¯\_(ツ)_/¯
 Relies on local ~/.aws/ credentials, see the README in the infrastructure repo for the list of required profiles.
 
 ```shell
-export AWS_ENV="dev" && export PROFILE="bsa$AWS_ENV"
+export AWS_ENV="dev" && export AWS_PROFILE="bsa$AWS_ENV"
 docker run -it \
     -v $(pwd):/opt/node_app/app \
     -v ~/.aws/:/root/.aws/ \
-    -e AWS_ENV -e AWS_PROFILE=$PROFILE \
+    -e AWS_ENV -e AWS_PROFILE \
     notification-submitter:latest slsdeploy
 ```
 
@@ -40,12 +40,12 @@ docker run -it \
 Relies on local ~/.aws/ credentials, see the README in the infrastructure repo for the list of required profiles.
 
 ```shell
-export AWS_ENV="dev" && export PROFILE="bsa$AWS_ENV"
+export AWS_ENV="dev" && export AWS_PROFILE="bsa$AWS_ENV"
 export EVENTPATH="events/cronEventWithNotifications.json"
 docker run -it -p 80:8080 \
     -v $(pwd):/opt/node_app/app \
     -v ~/.aws/:/root/.aws/ \
-    -e AWS_ENV -e AWS_PROFILE=$PROFILE -e EVENTPATH \
+    -e AWS_ENV -e AWS_PROFILE -e EVENTPATH \
     --env-file env-dev.env \
     notification-submitter:latest slsinvokelocal
 ```
