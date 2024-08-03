@@ -19,7 +19,11 @@ module.exports.alterSnsPayload = function(messageObj, options) {
     if (options.changeSendTimeUtc) {
         notificationMessageObj.sendTimeUtc = options.changeSendTimeUtc;
     }
+    if (options.changeNotificationType) {
+        notificationMessageObj.notificationType = options.changeNotificationType;
+    }
     messageObj.Records[0].Sns.Message = JSON.stringify(notificationMessageObj);
+    logger.trace(`alterSnsPayload - Payload altered: ${JSON.stringify(notificationMessageObj, null, 2)}`);
     return messageObj;
 }
 
@@ -60,5 +64,6 @@ module.exports.readNotificationFromS3 = async function(timeSlot, userId, message
     const notification = await s3db.get(
         subPath,
         { returnNullIfNotFound: true });
+    logger.debug(`Read notification from S3: ${notification ? JSON.stringify(notification, null, 2) : 'null'}`);
     return notification;
 }

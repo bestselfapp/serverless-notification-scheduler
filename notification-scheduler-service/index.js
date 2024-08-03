@@ -69,11 +69,31 @@ async function processNotification(event) {
             const sendTime = new Date(message.sendTimeUtc);
             const sendTimeEstString = convertUtcDateObjectToEstString(sendTime);
             logger.debug(`Notification Scheduler - Input dateStr from SNS message: ${message.sendTimeUtc} (${sendTimeEstString}) for Uid: ${Uid}`);
-        }
-        catch (err) {
+        } catch (err) {
             logger.error(`Notification Scheduler - Error parsing dateStr: ${message.sendTimeUtc}, Error: ${err}`);
         }
 
+        if (message.notificationType === 'none') {
+            // Remove the notification if the type is 'none'
+            logger.debug(`Notification Scheduler - Notification type is 'none', removing the notification.`);
+
+            // Find existing time slots for the Uid
+            const UidTimeSlots = await findUidTimeSlots(Uid);
+
+            // If it exists, delete the existing notification
+            if (UidTimeSlots.length > 0) {
+                for (const UidTimeSlot of UidTimeSlots) {
+                    logger.trace(`Notification Scheduler - Deleting existing notification in time slot: ${UidTimeSlot}`);
+                    await deleteUid(UidTimeSlot, Uid);
+                    logger.debug(`Notification Scheduler - Notification ${Uid} deleted from time slot ${UidTimeSlot} (${convertUtcTimeSlotStringToEst(UidTimeSlot)})`);
+                }
+            } else {
+                logger.debug(`Notification Scheduler - Notification ${Uid} does not exist in any existing time slot.`);
+            }
+
+            return;
+        }
+        
         if (message.sendTimeUtc.toLowerCase() === 'now') {
             // if the send time is 'now' we're going to bypass the whole scheduling
             // process and just repost the message event to the processor topic
@@ -81,7 +101,6 @@ async function processNotification(event) {
             logger.debug(`Notification Scheduler - Message is scheduled to be sent immediately.`);
             await postToProcessorTopic(message);
         } else {
-
             // find the time slot for the notification
             let timeSlot = getTimeSlotFromDateStr(message.sendTimeUtc);
             logger.debug(`Notification Scheduler - Time slot from raw event message: ${timeSlot} (UTC) (${convertUtcTimeSlotStringToEst(timeSlot)})`);
@@ -97,7 +116,7 @@ async function processNotification(event) {
             if (timeSlotMinutePart % 5 !== 0) {
                 logger.warn(`Notification Scheduler - Time slot ${timeSlot} is not in 5-minute increments.`);
             }
-            
+
             // check if the unique hash exists in any time slot folder
             const UidTimeSlots = await findUidTimeSlots(Uid);
 
@@ -120,18 +139,15 @@ async function processNotification(event) {
             // (even if it already exists, we want to overwrite any non-unique properties)
             await saveNotification(timeSlot, Uid, message);
         }
-    }
-    catch (err) {
+    } catch (err) {
         logger.error(`Error in notification scheduler: ${err}`);
         logger.error(`Stack trace: ${err.stack}`);
         throw err;
-    }
-    finally {
+    } finally {
         // reset the correlationId
         logger = createLogger(null);
     }
-};
-
+}
 
 // takes a date string and returns a time slot. the date string can be any
 // valid date, and the function will return a time slot in 'hh-mm' format,
