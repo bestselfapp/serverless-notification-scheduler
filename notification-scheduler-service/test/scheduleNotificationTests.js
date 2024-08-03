@@ -1,5 +1,3 @@
-//const mochaPlugin = require('serverless-mocha-plugin');
-//const expect = mochaPlugin.chai.expect;
 const expect = require('chai').expect;
 const testHelpers = require('./testHelpers');
 const { handler } = require('../index');
@@ -18,7 +16,7 @@ describe('Notification Scheduler', function() {
             event,
             { changeToNewUserId: true }
         );
-        
+
         await handler(event);
 
         const { timeSlot, userId, messageId } = testHelpers.getKeyPropertiesFromSnsPayload(event);
@@ -44,7 +42,7 @@ describe('Notification Scheduler', function() {
                 changeSendTimeUtc: newSendTimeUtc
             }
         );
-        
+
         await handler(event);
 
         const { timeSlot, userId, messageId } = testHelpers.getKeyPropertiesFromSnsPayload(event);
@@ -61,5 +59,37 @@ describe('Notification Scheduler', function() {
         // cleanup
         await s3db.delete(`${timeSlot}/${userId}-${messageId}`);
         await s3db.delete(`${oldTimeSlot}/${userId}-${messageId}`);
+    });
+
+    it('should remove the notification when notificationType is none', async function() {
+        let event = require('../events/validRecurringNotification.json');
+        event = testHelpers.alterSnsPayload(
+            event,
+            { changeToNewUserId: true }
+        );
+
+        // Schedule the initial notification
+        await handler(event);
+
+        const { timeSlot, userId, messageId } = testHelpers.getKeyPropertiesFromSnsPayload(event);
+        let notificationObj = await testHelpers.readNotificationFromS3(timeSlot, userId, messageId);
+        expect(notificationObj).to.not.be.null;
+        expect(notificationObj.uniqueProperties.userId).to.equal(userId);
+        expect(notificationObj.uniqueProperties.messageId).to.equal(messageId);
+
+        // Change notificationType to 'none' and process again
+        event = testHelpers.alterSnsPayload(
+            event,
+            { changeNotificationType: 'none' }
+        );
+
+        await handler(event);
+
+        // Verify the notification is removed
+        notificationObj = await testHelpers.readNotificationFromS3(timeSlot, userId, messageId);
+        expect(notificationObj).to.be.null;
+
+        // Cleanup
+        await s3db.delete(`${timeSlot}/${userId}-${messageId}`);
     });
 });
