@@ -9,7 +9,7 @@ async function process(event) {
     logger.debug('Starting notification submitter');
 
     try {
-        logger.trace(`Processing raw event: ${JSON.stringify(event, null, 2)}`);
+        logger.debug(`Processing raw event: ${JSON.stringify(event, null, 2)}`);
         // there isn't any "time" property of the event, the event is just the
         // cron without any useful information in the event, but our testing code
         // relies on it, so try to use this property and if it isn't found,

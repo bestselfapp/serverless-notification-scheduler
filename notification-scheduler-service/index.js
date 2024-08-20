@@ -50,7 +50,7 @@ async function processNotification(event) {
 
     try {
         const message = JSON.parse(event.Records[0].Sns.Message);
-        logger.trace(`Processing raw event: ${JSON.stringify(message, null, 2)}`);
+        logger.debug(`Processing raw event: ${JSON.stringify(message, null, 2)}`);
 
         // validate the message
         const { error } = schema.validate(message);
