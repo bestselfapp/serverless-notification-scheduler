@@ -53,7 +53,7 @@ async function processNotification(event) {
 
     try {
         // event is passed as an object
-        logger.trace(`Raw event:\n${JSON.stringify(event, null, 2)}`);
+        logger.debug(`Raw event:\n${JSON.stringify(event, null, 2)}`);
 
         // Extract the first record and parse the message
         const message = JSON.parse(event.Records[0].Sns.Message);
