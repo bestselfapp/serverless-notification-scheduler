@@ -90,20 +90,49 @@ async function sendMessage(event) {
                 cid: attachment.cid
             }))
         };
+
+        // Log the entire mailOptions object for verification
+        logger.trace(`Mail options: ${JSON.stringify(mailOptions)}`);
+            
+        // Log SMTP Transport Configuration (excluding sensitive details)
+        logger.trace(`SMTP Transport Config: ${JSON.stringify(transporter.options)}`);
         
         await new Promise((resolve, reject) => {
             transporter.sendMail(mailOptions, (error, info) => {
                 if (error) {
-                    logger.error(`Error sending Email to ${event.emailNotificationSettings.toEmailAddress}: ${error}`);
+                    logger.error(`Error sending Email to ${mailOptions.to}: ${error}`);
                     reject(error);
                 } else {
-                    logger.debug(`Info object: ${JSON.stringify(info)}`);
+                    logger.debug(`Email SES response info: ${JSON.stringify(info, null, 2)}`);
+
                     if (!info || !info.messageId) {
-                        const errMsg = `No messageId returned when sending Email to ${event.emailNotificationSettings.toEmailAddress}`;
+                        const errMsg = `No messageId returned when sending Email to ${mailOptions.to}`;
                         logger.error(errMsg);
                         reject(new Error(errMsg));
                     } else {
-                        logger.info(`Email sent: ${info.messageId}`);
+                        logger.info(`Email sent to ${mailOptions.to}, messageId: ${info.messageId}`);
+
+                        // Log raw SES response if available
+                        if (info.response) {
+                            logger.debug(`SES response: ${info.response}`);
+                        }
+
+                        try {
+                            // Log accepted, rejected, and pending lists if they exist
+                            if (info.accepted && info.accepted.length > 0) {
+                                logger.trace(`Accepted recipients: ${info.accepted.join(', ')}`);
+                            }
+                            if (info.rejected && info.rejected.length > 0) {
+                                logger.trace(`Rejected recipients: ${info.rejected.join(', ')}`);
+                            }
+                            if (info.pending && info.pending.length > 0) {
+                                logger.trace(`Pending recipients: ${info.pending.join(', ')}`);
+                            }
+                        }
+                        catch (err) {
+                            logger.error(`Error logging accepted, rejected, and pending recipients: ${err}`);
+                        }
+
                         resolve();
                     }
                 }
