@@ -91,9 +91,18 @@ async function sendMessage(event) {
             }))
         };
 
-        // Log the entire mailOptions object for verification
-        logger.trace(`Mail options: ${JSON.stringify(mailOptions)}`);
-            
+        // Create a sanitized copy of mailOptions for logging
+        const sanitizedMailOptions = {
+            ...mailOptions,
+            attachments: mailOptions.attachments.map(attachment => ({
+                filename: attachment.filename,
+                encoding: attachment.encoding,
+                cid: attachment.cid,
+                content: `[BASE64 CONTENT OMITTED, length: ${attachment.content.length} characters]`
+            }))
+        };
+        logger.trace(`Mail options: ${JSON.stringify(sanitizedMailOptions)}`);
+
         // Log SMTP Transport Configuration (excluding sensitive details)
         logger.trace(`SMTP Transport Config: ${JSON.stringify(transporter.options)}`);
         
