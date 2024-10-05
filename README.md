@@ -59,7 +59,7 @@ Below are sample requests to use for sending SMS and Emails.
         "emailType": "html",
         "toEmailAddress": "user@example.com",
         "fromEmailAddress": "noreply@bestselfapp.xyz",
-        "unsubscribeUrl": "future implementation"
+        "unsubscribeUrl": "https://yourdomain.com/unsubscribe?email=user@example.com"
     },
     "sendTimeUtc": "now"
 }
@@ -172,7 +172,16 @@ Even though some fields are only used for push notifications, it's recommended t
 
 - `fromEmailAddress`: This is the email address from which the email notification will be sent. It should be a valid email address.
 
-- `unsubscribeUrl`: Not implemented yet!  This is the URL that will be included in the email for users to unsubscribe from future notifications. It should be a valid URL. This field is optional.
+- `unsubscribeUrl` (optional): This is the URL that will be included in the email for users to unsubscribe from future notifications. It should be a valid URL. If provided, the service will:
+
+* Add a List-Unsubscribe header to the email, which email clients can use to display an unsubscribe option.
+* Pass the unsubscribeUrl to your email template so that you can include an unsubscribe link in the email body.
+
+You can either put the unsubscribe URL directly in your index.html email, or if you like you can use EJS to insert it in your HTML like:
+
+```html
+<p>If you no longer wish to receive these emails, you may <a href="<%= unsubscribeUrl %>">unsubscribe here</a>.</p>
+```
 
 `enableAdaptiveTiming` - This field is a placeholder for future functionality. When implemented, it will allow the system to adjust the timing of recurring notifications based on user behavior. If set to `true`, the system will call the `adaptiveTimingCallbackUrl` to determine the optimal time to send the notification. Currently, this functionality is not implemented and this field has no effect.
 

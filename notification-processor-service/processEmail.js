@@ -5,6 +5,7 @@ let logger = createLogger();
 const nodemailer = require('nodemailer');
 const aws = require('aws-sdk');
 const path = require('path');
+const ejs = require('ejs'); // Add this line to require EJS
 
 aws.config.update({ region: process.env.AWS_REGION });
 const ses = new aws.SES({ apiVersion: '2010-12-01' });
@@ -18,7 +19,7 @@ const transporter = nodemailer.createTransport({
 
 async function sendMessage(event) {
     // the message is split into parts for push notifications, combine
-    // it here for SMS
+    // it here for email
     const s3uri = event.message.body;
     if (!s3uri.startsWith('s3://')) {
         const errMsg = `Invalid S3 key: ${s3uri}. For email this should always start with 's3://'.`;
@@ -34,11 +35,10 @@ async function sendMessage(event) {
 
     let mailOptions;
     try {
-        
         const s3db = new S3DB(parsedBucket, parsedPath);
         const items = await s3db.list();
 
-        // Check if the 'index.html' file exists in the S3 bucket
+        // Check if the 'index.html' file exists in the S3 path
         if (!items.includes('index.html')) {
             const errMsg = `Missing index.html file in ${s3uri}`;
             logger.error(errMsg);
@@ -49,7 +49,7 @@ async function sendMessage(event) {
         const attachments = [];
         let emailContent;
 
-        // Loop through each key in the S3 bucket
+        // Loop through each key in the S3 path
         for (const item of items) {
             logger.info(`Fetching ${item}`);
             const blob = await s3db.getBlob(item, { returnNullIfNotFound: true });
@@ -58,15 +58,15 @@ async function sendMessage(event) {
                 logger.error(errMsg);
                 throw new Error(errMsg);
             }
-            const fullKey = path.join(parsedPath,item);
+            const fullKey = path.join(parsedPath, item);
             logger.trace(`Adding ${fullKey} as an attachment`);
 
-            if (fullKey === path.join(parsedPath,'index.html')) {
+            if (fullKey === path.join(parsedPath, 'index.html')) {
                 // If the blob is 'index.html', use its content as the email body
                 emailContent = blob.toString('utf-8');
             } else {
                 // Convert the blob to a base64 string
-                const base64Data =  blob.toString('base64');
+                const base64Data = blob.toString('base64');
 
                 // Add the base64 string to the attachments array
                 attachments.push({
@@ -85,35 +85,50 @@ async function sendMessage(event) {
             throw new Error(errMsg);
         }
 
+        // Process the email content as an EJS template
+        const templateData = {
+            // Add any variables needed in your template here
+            unsubscribeUrl: event.emailNotificationSettings.unsubscribeUrl || ''
+        };
+
+        try {
+            emailContent = ejs.render(emailContent, templateData);
+        } catch (err) {
+            const errMsg = `Error rendering email template: ${err}`;
+            logger.error(errMsg);
+            throw new Error(errMsg);
+        }
+
+        // Build the mail options
         mailOptions = {
             from: event.emailNotificationSettings.fromEmailAddress,
             to: event.emailNotificationSettings.toEmailAddress,
             subject: event.message.title,
             html: emailContent,
             attachments: attachments.map(attachment => ({
-              filename: attachment.filename,
-              content: Buffer.from(attachment.content, 'base64'),
-              cid: attachment.cid
-              // 'encoding' is not needed here unless required
-            }))
+                filename: attachment.filename,
+                content: Buffer.from(attachment.content, 'base64'),
+                cid: attachment.cid
+            })),
+            // Add the List-Unsubscribe header if unsubscribeUrl is provided
+            headers: event.emailNotificationSettings.unsubscribeUrl
+                ? {
+                      'List-Unsubscribe': `<${event.emailNotificationSettings.unsubscribeUrl}>`
+                  }
+                : {}
         };
 
+        // Sanitize mailOptions for logging
         try {
-            // Create a sanitized copy of mailOptions for logging
             const sanitizedMailOptions = {
-              ...mailOptions,
-              attachments: mailOptions.attachments.map(attachment => {
-                const sanitizedAttachment = {
-                  filename: attachment.filename || 'unknown',
-                  cid: attachment.cid || 'unknown',
-                  content: `[BASE64 CONTENT OMITTED, length: ${attachment.content ? attachment.content.length : 'unknown'} characters]`
-                };
-                // Only include 'encoding' if it exists
-                if (attachment.encoding) {
-                  sanitizedAttachment.encoding = attachment.encoding;
-                }
-                return sanitizedAttachment;
-              })
+                ...mailOptions,
+                attachments: mailOptions.attachments.map(attachment => ({
+                    filename: attachment.filename || 'unknown',
+                    cid: attachment.cid || 'unknown',
+                    content: `[BASE64 CONTENT OMITTED, length: ${
+                        attachment.content ? attachment.content.length : 'unknown'
+                    } characters]`
+                }))
             };
             logger.trace(`Mail options: ${JSON.stringify(sanitizedMailOptions)}`);
         } catch (err) {
@@ -122,13 +137,12 @@ async function sendMessage(event) {
 
         // Log SMTP Transport Configuration (excluding sensitive details)
         logger.trace(`SMTP Transport Config: ${JSON.stringify(transporter.options)}`);
-    }
-    catch (err) {
+    } catch (err) {
         const errMsg = `Error preparing to send Email to ${event.emailNotificationSettings.toEmailAddress}: ${err}`;
         logger.error(errMsg);
         throw err;
     }
-    
+
     // Send the email using the transporter
     let info;
     try {
@@ -145,12 +159,16 @@ async function sendMessage(event) {
         if (sanitizedInfo.raw) {
             // Replace raw data with indication of size
             if (Buffer.isBuffer(sanitizedInfo.raw)) {
-            sanitizedInfo.raw = `[Buffer data omitted, length: ${sanitizedInfo.raw.length} bytes]`;
-            } else if (typeof sanitizedInfo.raw === 'object' && sanitizedInfo.raw.type === 'Buffer' && Array.isArray(sanitizedInfo.raw.data)) {
-            // For objects with type 'Buffer' and data array
-            sanitizedInfo.raw = `[Buffer data omitted, length: ${sanitizedInfo.raw.data.length} bytes]`;
+                sanitizedInfo.raw = `[Buffer data omitted, length: ${sanitizedInfo.raw.length} bytes]`;
+            } else if (
+                typeof sanitizedInfo.raw === 'object' &&
+                sanitizedInfo.raw.type === 'Buffer' &&
+                Array.isArray(sanitizedInfo.raw.data)
+            ) {
+                // For objects with type 'Buffer' and data array
+                sanitizedInfo.raw = `[Buffer data omitted, length: ${sanitizedInfo.raw.data.length} bytes]`;
             } else {
-            sanitizedInfo.raw = '[Raw data omitted]';
+                sanitizedInfo.raw = '[Raw data omitted]';
             }
         }
 
@@ -175,13 +193,13 @@ async function sendMessage(event) {
         try {
             // Log accepted, rejected, and pending lists if they exist
             if (info.accepted && info.accepted.length > 0) {
-            logger.trace(`Accepted recipients: ${info.accepted.join(', ')}`);
+                logger.trace(`Accepted recipients: ${info.accepted.join(', ')}`);
             }
             if (info.rejected && info.rejected.length > 0) {
-            logger.trace(`Rejected recipients: ${info.rejected.join(', ')}`);
+                logger.trace(`Rejected recipients: ${info.rejected.join(', ')}`);
             }
             if (info.pending && info.pending.length > 0) {
-            logger.trace(`Pending recipients: ${info.pending.join(', ')}`);
+                logger.trace(`Pending recipients: ${info.pending.join(', ')}`);
             }
         } catch (err) {
             logger.error(`Error logging accepted, rejected, and pending recipients: ${err}`);
