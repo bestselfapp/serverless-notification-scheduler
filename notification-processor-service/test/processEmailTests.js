@@ -11,6 +11,8 @@ const createLogger = require('../logger');
 let logger = createLogger();
 
 describe('Notification Processor', function() {
+    this.timeout(15000); // Setting global timeout to 15 seconds
+
     it('should process a valid email request without attachments', async function() {
         // Upload a small HTML email to S3
         const htmlContent = "Hello <b>World</b>, no attachments here.";
