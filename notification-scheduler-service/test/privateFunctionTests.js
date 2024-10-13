@@ -9,7 +9,7 @@ const index = rewire('../index');
 const getTimeSlotFromDateStr = index.__get__('getTimeSlotFromDateStr');
 
 describe('getTimeSlotFromDateStr', function() {
-    it('should correctly extract a time slot', async function() {
+    it('should correctly extract a time slot from ISO 8601 format', async function() {
         let timeSlot;
         timeSlot = getTimeSlotFromDateStr('2019-01-01T00:00:00Z');
         expect(timeSlot).to.equal('00-00');
@@ -29,5 +29,34 @@ describe('getTimeSlotFromDateStr', function() {
         expect(timeSlot).to.equal('13-55');
         timeSlot = getTimeSlotFromDateStr('2019-01-01T13:59:00Z');
         expect(timeSlot).to.equal('13-55');
+    });
+
+    it('should correctly extract a time slot from time-only format', async function() {
+        let timeSlot;
+        timeSlot = getTimeSlotFromDateStr('00:00');
+        expect(timeSlot).to.equal('00-00');
+        timeSlot = getTimeSlotFromDateStr('00:01');
+        expect(timeSlot).to.equal('00-00');
+        timeSlot = getTimeSlotFromDateStr('00:04');
+        expect(timeSlot).to.equal('00-00');
+        timeSlot = getTimeSlotFromDateStr('00:05');
+        expect(timeSlot).to.equal('00-05');
+        timeSlot = getTimeSlotFromDateStr('00:06');
+        expect(timeSlot).to.equal('00-05');
+        timeSlot = getTimeSlotFromDateStr('00:10');
+        expect(timeSlot).to.equal('00-10');
+        timeSlot = getTimeSlotFromDateStr('13:55');
+        expect(timeSlot).to.equal('13-55');
+        timeSlot = getTimeSlotFromDateStr('13:57');
+        expect(timeSlot).to.equal('13-55');
+        timeSlot = getTimeSlotFromDateStr('13:59');
+        expect(timeSlot).to.equal('13-55');
+    });
+
+    it('should throw an error for invalid input', async function() {
+        expect(() => getTimeSlotFromDateStr('invalid')).to.throw();
+        expect(() => getTimeSlotFromDateStr('25:00')).to.throw();
+        expect(() => getTimeSlotFromDateStr('00:60')).to.throw();
+        expect(() => getTimeSlotFromDateStr('2019-01-01')).to.throw();
     });
 });
