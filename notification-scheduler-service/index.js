@@ -154,21 +154,51 @@ async function processNotification(event) {
 // representing the hour and minute in UTC. the function also supports the
 // string 'now', which is treated as a special time slot itself.
 function getTimeSlotFromDateStr(dateStr) {
+    logger.debug(`getTimeSlotFromDateStr - Input dateStr: ${dateStr}`);
+
     try {
-        logger.trace(`getTimeSlotFromDateStr - Will attempt to parse time slot from input dateStr: ${dateStr}`);
-        const sendTime = new Date(dateStr);
-        const hours = sendTime.getUTCHours().toString().padStart(2, '0');
-        
+        let hours, minutes;
+
+        // Check if the input matches the expected ISO 8601 format
+        const isoRegex = /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2}):\d{2}Z$/;
+        const isoMatch = dateStr.match(isoRegex);
+
+        if (isoMatch) {
+            // Extract hours and minutes from the ISO 8601 format
+            [, hours, minutes] = isoMatch;
+            logger.debug(`getTimeSlotFromDateStr - Parsed ISO 8601 format. Hours: ${hours}, Minutes: ${minutes}`);
+        } else {
+            // Attempt to extract time from other potential formats
+            const timeRegex = /(\d{1,2}):(\d{2})/;
+            const timeMatch = dateStr.match(timeRegex);
+
+            if (timeMatch) {
+                [, hours, minutes] = timeMatch;
+                logger.debug(`getTimeSlotFromDateStr - Extracted time from non-standard format. Hours: ${hours}, Minutes: ${minutes}`);
+            } else {
+                throw new Error('Unable to extract time from the provided string');
+            }
+        }
+
+        // Ensure hours and minutes are valid numbers
+        hours = parseInt(hours, 10);
+        minutes = parseInt(minutes, 10);
+
+        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+            throw new Error('Invalid hours or minutes');
+        }
+
         // Round minutes down to the nearest 5-minute interval
-        let minutes = sendTime.getUTCMinutes();
         minutes = Math.floor(minutes / 5) * 5;
-        
-        const minutesStr = minutes.toString().padStart(2, '0');
-        const timeSlot = `${hours}-${minutesStr}`;
+
+        // Format the time slot
+        const timeSlot = `${hours.toString().padStart(2, '0')}-${minutes.toString().padStart(2, '0')}`;
+        logger.debug(`getTimeSlotFromDateStr - Generated time slot: ${timeSlot}`);
+
         return timeSlot;
     } catch (err) {
-        logger.error(`getTimeSlotFromDateStr - Error parsing dateStr: ${dateStr}`);
-        logger.error(`getTimeSlotFromDateStr - Error: ${err}`);
+        logger.error(`getTimeSlotFromDateStr - Error processing dateStr: ${dateStr}`);
+        logger.error(`getTimeSlotFromDateStr - Error details: ${err.message}`);
         throw err;
     }
 }
@@ -214,7 +244,11 @@ async function findUidTimeSlots(Uid) {
 }
 
 function timeSlotFormatValid(timeSlot) {
-    return /^\d{2}-\d{2}$/.test(timeSlot) || timeSlot.toLowerCase() === 'now';
+    const isValid = /^\d{2}-\d{2}$/.test(timeSlot) || timeSlot.toLowerCase() === 'now';
+    if (!isValid) {
+        logger.warn(`Invalid time slot format: ${timeSlot}. Expected format: "HH-MM" (e.g., "14-30") or "now".`);
+    }
+    return isValid;
 }
 
 async function deleteUid(timeSlot, Uid) {
