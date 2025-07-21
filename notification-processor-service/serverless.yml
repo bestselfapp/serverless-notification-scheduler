@@ -6,7 +6,7 @@ service: bsa-notification-processor-service
 provider:
   name: aws
   region: us-east-1
-  runtime: nodejs18.x
+  runtime: nodejs22.x
   deploymentBucket: ${self:custom.prefix}-deploy-${env:AWS_ENV, 'dev'}-${self:provider.region}
   stage: live
   stackName: bsa-${self:service}-live
